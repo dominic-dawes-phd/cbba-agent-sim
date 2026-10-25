@@ -1,0 +1,10 @@
+k: kitchen
+d: dining
+---
+###############
+#kkkkkk#dddddd#
+#kkkkkk#dddddd#
+#kkkkkkddddddd#
+#kkkkkk#dddddd#
+#kkkkkk#dddddd#
+###############

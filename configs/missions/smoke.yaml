@@ -1,0 +1,58 @@
+# Smoke mission for the M1 sim core: three agents, six tasks, cross-agent precedence.
+# Cells are [x, y] with y increasing downward. Headings: 0 east, 90 south, 180 west, 270 north.
+
+objects:
+  # Furniture (static, impassable, known from the map at tick 0).
+  - {id: counter_1, type: counter, cell: [1, 1], furniture: true, surface: true}
+  - {id: dishwasher_1, type: dishwasher, cell: [3, 1], furniture: true, container: true, open: false}
+  - {id: cabinet_1, type: cabinet, cell: [1, 5], furniture: true, container: true, open: false}
+  - {id: table_1, type: table, cell: [11, 2], furniture: true, surface: true}
+  - {id: shelf_1, type: shelf, cell: [13, 5], furniture: true, surface: true}
+  # Movable objects.
+  - {id: plate_1, type: plate, parent: counter_1, visual: {dirty: "yes"}}
+  - {id: plate_2, type: plate, parent: table_1, visual: {dirty: "yes"}, hidden: {fragile: "yes"}}
+  - {id: mug_1, type: mug, parent: table_1}
+  - {id: cup_1, type: cup, parent: cabinet_1}
+  - {id: pot_1, type: pot, cell: [5, 2], hands: 2}
+
+agents:
+  - {id: arm_a, cell: [3, 3], heading: 270, hands: 2, speed: 1, view_range: 6, view_angle: 180}
+  - {id: arm_b, cell: [10, 4], heading: 270, hands: 1, speed: 1, view_range: 6, view_angle: 180}
+  - {id: carrier_c, cell: [9, 4], heading: 270, hands: 1, speed: 2, view_range: 6, view_angle: 180,
+     can_scan: true}
+
+tasks:
+  - id: t_open
+    description: Open the dishwasher.
+    goals: [[dishwasher_1, is, open]]
+    steps: [[open, dishwasher_1]]
+  - id: t_plate1
+    description: Load the dirty plate from the counter into the dishwasher.
+    goals: [[plate_1, in, dishwasher_1]]
+    after: [t_open]
+    steps: [[pick, plate_1], [place, plate_1, dishwasher_1]]
+  - id: t_plate2
+    description: Load the plate from the dining table into the dishwasher. It is fragile; carry it alone.
+    goals: [[plate_2, in, dishwasher_1]]
+    after: [t_open]
+    language_only: true
+    steps: [[pick, plate_2], [place, plate_2, dishwasher_1]]
+  - id: t_mug
+    description: Put the mug from the dining table on the shelf.
+    goals: [[mug_1, "on", shelf_1]]
+    steps: [[pick, mug_1], [place, mug_1, shelf_1]]
+  - id: t_pot
+    description: Put the pot on the counter. It needs two hands.
+    goals: [[pot_1, "on", counter_1]]
+    steps: [[pick, pot_1], [place, pot_1, counter_1]]
+  - id: t_close
+    description: Close the dishwasher once both plates are loaded.
+    goals: [[dishwasher_1, is, closed]]
+    after: [t_plate1, t_plate2]
+    steps: [[close, dishwasher_1]]
+
+# Fixed assignment for the scripted test policy only. Real conditions allocate tasks themselves.
+scripted_assignment:
+  arm_a: [t_open, t_plate1, t_pot, t_close]
+  arm_b: [t_plate2]
+  carrier_c: [t_mug]

@@ -40,7 +40,14 @@ Each runs under perfect communication, then sweeps: packet loss `p`, communicati
 | `docs/design/simulator.md` | Simulator design: clocks, perception, channel, ledger, logging |
 | `docs/design/decisions.md` | Dated log of decisions and open questions. **Check before changing a design choice.** |
 
-The code layout is planned but not built yet (see the end of `docs/design/simulator.md`).
+| `sim/` | Simulator core (M1, LLM-free): world, BFS pathing, perception, beliefs, channel, agent/Policy interface, primitives, loop, logger |
+| `allocation/` | Coordination logic per condition (only `scripted.py` test scaffolding so far) |
+| `llm/` | Latency model (client and prompts come in M4) |
+| `configs/` | Episode configs, `maps/` (ASCII), `missions/` (YAML) |
+| `experiments/` | `run_single.py` |
+| `tests/` | pytest unit and episode tests |
+
+The full layout, including what is still planned, is at the end of `docs/design/simulator.md`.
 
 ## Hard rules (these protect the validity of the results)
 
@@ -78,4 +85,8 @@ The code layout is planned but not built yet (see the end of `docs/design/simula
 
 ## Commands
 
-None yet. Add test, lint, and run commands here as soon as they exist.
+Use the project venv (`python -m venv .venv`, then `.venv/Scripts/python -m pip install -e .[dev]`).
+
+- Tests: `.venv/Scripts/python -m pytest`
+- Lint: `.venv/Scripts/ruff check .` and `.venv/Scripts/ruff format --check .`
+- One episode: `.venv/Scripts/python -m experiments.run_single configs/m1_smoke.yaml` (logs go to `runs/<name>/seed_<seed>/`)

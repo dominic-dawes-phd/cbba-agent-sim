@@ -59,9 +59,9 @@ There's no existing environment that has LLM agents, heterogeneous allocation, m
 
 - **World:** 2D household/kitchen grid with rooms, walls, furniture, and objects (Overcooked-style; MindAgent's CuisineWorld and LLM-Coordination's Overcooked-AI are precedent).
 - **Objects:** position, relation (on/in), rigid or deformable, number of hands needed, and language-only attributes. Simple drop rule: dropped near a table lands on the table, otherwise on the floor.
-- **Agents:** capability card, field of view, gripper state, comms range, per-skill success probability.
-- **Observations:** symbolic, a text scene graph of what the agent can currently see. No pixels.
-- **Time:** discrete simulated steps, not wall-clock. The world waits while LLMs think, so results don't depend on GPU speed. Each LLM call costs the calling agent a fixed number of idle steps (a "thinking cost") so LLM-heavy conditions don't get free deliberation.
+- **Agents:** capability card (hands, movement speed, field of view, scanner, per-skill success probability) and gripper state. Communication range is one swept value for the whole team.
+- **Observations:** symbolic, a text scene graph of what the agent can currently see, plus remembered and teammate-reported objects with their staleness. Distances are given as BFS step counts. No pixels.
+- **Time:** discrete simulated ticks, not wall-clock. The world waits while LLMs think, so results don't depend on GPU speed. Each LLM call costs the calling agent idle ticks computed from its token counts at a fixed reference throughput (a "thinking cost"), so LLM-heavy conditions don't get free deliberation. Teammates keep acting meanwhile. Travel takes `ceil(steps / speed)` ticks.
 - **Communication model:** delivery probability falls off with distance and each wall crossed, plus a base packet-loss rate p and optional latency.
 - **Churn:** k agents crash at a random step and rejoin after Δ steps, either keeping or losing their memory.
 - **Interface:** PettingZoo Parallel API (reset/step), so it's familiar and easy to reproduce.

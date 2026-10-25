@@ -41,6 +41,21 @@ Newest entries last within each section. Format: **decision**, then *why*. Updat
 - **Compute plan:** laptop (RTX 4070, 8 GB) for development and pilots; UMBC cluster Slurm job arrays (one job per condition x seed) for the roughly 400-episode sweeps.
 - **Ceiling check with a frontier API model** on a small subset (a few seeds at perfect communication and one high-loss setting), to pre-empt "your model was just too small."
 
+### M1 sim core (Oct 24, 2026)
+
+- **Per-agent speed.** BFS returns path length in *steps*. Travel time is `max(1, ceil(steps / speed))` ticks. LLM text shows steps.
+  *Why:* lets the team be heterogeneous in speed while keeping one distance function (hard rule 8). Agents share one passability map; per-agent mobility (a drone flying over counters) was considered and deferred.
+- **Scenarios are an ASCII map plus a YAML mission**, written by hand for now. A seeded mission generator (for `rho` and difficulty) comes with the sweeps.
+- **Static furniture is known from the map at tick 0. Movable objects must be perceived.**
+  *Why:* agents need fixture locations to navigate, and a household robot would have the floor plan. Without this, scripted and LLM agents would have to explore before they could name a dishwasher. Revisit if the exploration cost itself becomes a variable of interest.
+- **Decision-point rules.** A policy returns a list of calls. Decisions happen at episode start, when the list is used up, on any failure, and on rejoin. A message triggers a decision immediately only when the agent is idle or in `wait`; otherwise it is read after the current skill. A response containing any call that fails the belief check is rejected whole, and the agent still pays `L`.
+- **Failure taxonomy:** `hallucination`, `invalid_call`, `stale_belief`, `skill_failure`. Failures caused by the agent's own state (hands full, not holding the object) are `invalid_call`, not `stale_belief`.
+  *Why:* the stale-belief rate should measure world drift only, which is what communication loss is predicted to worsen.
+- **Communication range `r` is one swept value for the team**, not a capability-card field. *Why:* per-agent radios would confound the `r` sweep. Radio distance is Euclidean.
+- **Perception runs at the start of each tick, before decisions.** A frozen prompt therefore shows what is in view at that tick.
+- **M1 simplifications** (revisit if they matter): agents do not block or perceive each other, there is no payload or weight, objects nest only inside furniture, and "memory wiped" on rejoin is not implemented (open question 7).
+- **Dependencies:** `pyyaml` at runtime (configs and missions are YAML); `pytest` and `ruff` for development. They are installed in a project-local `.venv`.
+
 ### Paper and course logistics
 
 - **Paper is in AAAI style** (`aaai2027`) with natbib author-year citations. `[submission]` is removed so the instructor can see the author; restore it only if the class requires anonymity.

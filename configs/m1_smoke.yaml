@@ -1,0 +1,32 @@
+# M1 smoke run: scripted agents under perfect communication.
+name: m1_smoke
+seed: 0
+max_ticks: 500
+map: configs/maps/kitchen_small.txt
+mission: configs/missions/smoke.yaml
+output_dir: runs
+snapshot_every: 10
+
+# Provisional reference rates (decisions.md, open question 2).
+latency:
+  prefill_rate: 2000.0
+  decode_rate: 40.0
+  seconds_per_tick: 1.0
+
+# Perfect communication: no base loss, no range cutoff, no distance falloff, walls transparent.
+channel:
+  base_loss: 0.0
+  comm_range: null
+  d0: null
+  alpha: 4.0
+  wall_penalty: 1.0
+  latency_ticks: 0
+
+churn:
+  num_agents: 0
+  rejoin_delay: 30
+  earliest_tick: 10
+  latest_tick: 60
+
+scripted:
+  wait_ticks: 5

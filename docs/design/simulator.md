@@ -29,6 +29,14 @@ Precedent: PARTNR, LLaMAR, CoELA (skills + symbolic observations), MindAgent's C
 
 Agents query their LLM only at **decision points**: episode start, a skill finished or failed, a message arrived, or the task assignment changed. Skills such as `move_to(sink)` run scripted over many ticks with no LLM call.
 
+As built in M1 (`sim/agent.py`, `sim/loop.py`):
+
+- A policy returns a **list** of tool calls, which run in order. The next decision point comes when the list is used up, a call fails, or the agent rejoins after a crash.
+- A message triggers a decision immediately only if the agent is idle or in an interruptible skill (`wait`). Otherwise it is read when the current skill finishes, and the new decision replaces whatever is left of the list.
+- If any returned call fails the belief check, the whole response is rejected. The agent still pays `L`, and the failure is shown at its next decision.
+- Every skill takes at least one tick.
+- Order within a tick: churn, message delivery, perception, decisions, skill steps, ground-truth task progress, snapshot. Perception runs before decisions, so a prompt frozen at tick `t` shows what is in view at `t`.
+
 At a decision point the sim:
 
 1. Freezes the agent's observation (belief graph serialized to text) at tick `t`.
@@ -41,10 +49,17 @@ At a decision point the sim:
 import math
 
 
-def latency_ticks(prompt_tokens: int, output_tokens: int, prefill_rate: float,
-                  decode_rate: float, seconds_per_tick: float) -> int:
+def latency_ticks(
+    prompt_tokens: int,
+    output_tokens: int,
+    prefill_rate: float,
+    decode_rate: float,
+    seconds_per_tick: float,
+) -> int:
     """Deliberation cost in simulated ticks, from token counts at fixed reference rates."""
-    return math.ceil((prompt_tokens / prefill_rate + output_tokens / decode_rate) / seconds_per_tick)
+    return math.ceil(
+        (prompt_tokens / prefill_rate + output_tokens / decode_rate) / seconds_per_tick
+    )
 ```
 
 Proposed defaults (provisional): `prefill_rate = 2000` tok/s, `decode_rate = 40` tok/s, `seconds_per_tick = 1.0`. With these, a 500-token prompt and 150-token response cost `L = 4` ticks. Run sensitivity ablations with `L = 0` and with a fixed `L`.
@@ -58,13 +73,13 @@ def run_episode(world, agents, llm_client, latency_model, max_ticks):
         if deciding:
             requests = [agent.build_request(world.observe(agent)) for agent in deciding]
             responses = llm_client.batch_complete(requests)  # wall-clock wait; sim clock frozen
-            for agent, response in zip(deciding, responses):
+            for agent, request, response in zip(deciding, requests, responses):
                 delay = latency_model.ticks_for(response.usage)
                 agent.schedule(response.tool_calls, start_tick=tick + delay)
-                world.logger.llm_call(tick, agent.id, requests, response, delay)
-        world.network.deliver(tick)           # messages sent earlier arrive or are dropped
+                world.logger.llm_call(tick, agent.id, request, response, delay)  # this agent's request only
+        world.network.deliver(tick)  # messages sent earlier arrive or are dropped
         for agent in agents:
-            agent.step_skill(world, tick)     # move one cell, finish a pick, or idle while "thinking"
+            agent.step_skill(world, tick)  # move one cell, finish a pick, or idle while "thinking"
         world.logger.snapshot(tick, world, agents)
 ```
 
@@ -81,12 +96,12 @@ from dataclasses import dataclass, field
 @dataclass
 class WorldObject:
     obj_id: str
-    obj_type: str                  # "plate", "pot", "dishwasher"
+    obj_type: str  # "plate", "pot", "dishwasher"
     cell: tuple[int, int]
-    parent_id: str | None          # what it is on/in; None means floor
-    parent_relation: str | None    # "on" | "in"
-    visual_attrs: dict[str, str]   # perceivable: {"state": "open", "dirty": "yes"}
-    hidden_attrs: dict[str, str]   # never perceived: {"fragile": "yes"}
+    parent_id: str | None  # what it is on/in; None means floor
+    parent_relation: str | None  # "on" | "in"
+    visual_attrs: dict[str, str]  # perceivable: {"state": "open", "dirty": "yes"}
+    hidden_attrs: dict[str, str]  # never perceived: {"fragile": "yes"}
     is_container: bool = False
     is_open: bool = True
 
@@ -94,7 +109,7 @@ class WorldObject:
 @dataclass
 class World:
     walls: set[tuple[int, int]]
-    rooms: dict[tuple[int, int], str]        # cell -> "kitchen"
+    rooms: dict[tuple[int, int], str]  # cell -> "kitchen"
     objects: dict[str, WorldObject] = field(default_factory=dict)
     tick: int = 0
 ```
@@ -130,8 +145,13 @@ def has_line_of_sight(world: World, start: tuple[int, int], end: tuple[int, int]
     return True
 
 
-def visible_object_ids(world: World, cell: tuple[int, int], heading_deg: float,
-                       view_range: float, view_angle_deg: float) -> set[str]:
+def visible_object_ids(
+    world: World,
+    cell: tuple[int, int],
+    heading_deg: float,
+    view_range: float,
+    view_angle_deg: float,
+) -> set[str]:
     visible = set()
     for obj in world.objects.values():
         dx, dy = obj.cell[0] - cell[0], obj.cell[1] - cell[1]
@@ -153,7 +173,7 @@ Walls used for line of sight are the same walls used for radio attenuation.
 
 ### Relations (fixed small vocabulary)
 
-Among visible objects only: `on` / `in` (read from the parent pointer, always exact), `in_room`, `held_by`, and `next_to` (adjacent cells with no parent link). Do not emit all pairwise "near" relations; that is n^2 prompt noise. Output is sorted so identical states produce identical text (this keeps the response cache effective).
+Among visible objects only: `on` / `in` (read from the parent pointer, always exact), `in_room`, `held_by`, and `next_to` (adjacent cells with no parent link). A held object's cell follows its holder, so it is reported as `held_by` and never with a stale cell. Held objects get no `next_to` relations. Do not emit all pairwise "near" relations; that is n^2 prompt noise. Output is sorted so identical states produce identical text (this keeps the response cache effective).
 
 ```python
 def observed_relations(world: World, visible: set[str]) -> list[tuple[str, str, str]]:
@@ -166,9 +186,11 @@ def observed_relations(world: World, visible: set[str]) -> list[tuple[str, str, 
             relations.append((obj_id, "in_room", world.rooms[obj.cell]))
     ordered = sorted(visible)
     for index, first_id in enumerate(ordered):
-        for second_id in ordered[index + 1:]:
+        for second_id in ordered[index + 1 :]:
             first, second = world.objects[first_id], world.objects[second_id]
-            adjacent = max(abs(first.cell[0] - second.cell[0]), abs(first.cell[1] - second.cell[1])) == 1
+            adjacent = (
+                max(abs(first.cell[0] - second.cell[0]), abs(first.cell[1] - second.cell[1])) == 1
+            )
             linked = first.parent_id == second_id or second.parent_id == first_id
             if adjacent and not linked:
                 relations.append((first_id, "next_to", second_id))
@@ -177,14 +199,16 @@ def observed_relations(world: World, visible: set[str]) -> list[tuple[str, str, 
 
 ### Distance
 
-Distance for bidding is **shortest-path length in ticks** (BFS on the grid, cached per target cell), not straight-line distance. The same function feeds the oracle, numeric CBBA utilities, and the text shown to LLMs ("plate_2: 6 steps away"), so no condition gets better distance information. Give LLMs step counts, not raw coordinates.
+Distance for bidding is **shortest-path length in steps** (grid cells; BFS on the 4-connected grid, cached per target cell), not straight-line distance. Agents have per-agent speed, so travel time is `travel_ticks = max(1, ceil(steps / speed))`, derived from steps and never measured separately. The same function (`PathPlanner.steps` in `sim/pathing.py`) feeds the oracle, numeric CBBA utilities, and the text shown to LLMs ("plate_2: 6 steps away"), so no condition gets better distance information. Give LLMs step counts, not raw coordinates.
+
+Furniture is impassable, so "distance to an object" means distance to the nearest free cell within one cell of it, diagonals included. Interaction primitives use the same adjacency (Chebyshev distance at most 1). Agents do not block each other in M1.
 
 ## 6. Belief graph (what the agent thinks is true)
 
 Each agent owns its belief dictionary. Update rule, every tick:
 
 1. **Visible objects:** overwrite with fresh relations and attributes; set `last_seen = tick`.
-2. **Negative evidence:** if the agent can see the cell where it believes an object is, but the object is not visible, mark the entry `missing`.
+2. **Negative evidence:** if the agent can see the cell where it believes an object is, but the object is not visible, mark the entry `missing`. *Exception:* an object believed to be `in` a container that is now closed is not marked missing, because a closed container hides its contents. (The reference snippet below predates this fix; `sim/beliefs.py` has it.)
 3. **Everything else:** leave it alone; it goes stale but keeps its `last_seen`.
 4. **Gossip from teammates:** merge with `source = "told"` and the teammate's timestamp; the newer timestamp wins. Communication loss therefore degrades what agents *know*, not only what they have claimed.
 
@@ -196,23 +220,31 @@ class Belief:
     visual_attrs: dict[str, str]
     believed_cell: tuple[int, int]
     last_seen: int
-    source: str        # "seen" | "told"
+    source: str  # "seen" | "told"
     missing: bool = False
 
 
-def update_beliefs(beliefs: dict[str, Belief], world: World, visible: set[str],
-                   visible_cells: set[tuple[int, int]], relations: list[tuple[str, str, str]]) -> None:
+def update_beliefs(
+    beliefs: dict[str, Belief],
+    world: World,
+    visible: set[str],
+    visible_cells: set[tuple[int, int]],
+    relations: list[tuple[str, str, str]],
+) -> None:
     for obj_id in visible:
         obj = world.objects[obj_id]
         own_relations = [rel for rel in relations if rel[0] == obj_id]
-        beliefs[obj_id] = Belief(obj.obj_type, own_relations, dict(obj.visual_attrs),
-                                 obj.cell, world.tick, "seen")
+        beliefs[obj_id] = Belief(
+            obj.obj_type, own_relations, dict(obj.visual_attrs), obj.cell, world.tick, "seen"
+        )
     for obj_id, belief in beliefs.items():
         if obj_id not in visible and belief.believed_cell in visible_cells:
             belief.missing = True
 ```
 
-`visible_cells` is computed with the same range, cone, and line-of-sight test applied to cells.
+`visible_cells` is computed with the same range, cone, and line-of-sight test applied to cells. (In code this is `cell_visible`, evaluated only at believed cells.)
+
+**Static furniture is known from the map at tick 0** (belief `source = "map"`). Movable objects must be perceived. Belief gossip (`merge_told`) is implemented and tested but is not wired into the loop yet. It arrives with ledger gossip in M2.
 
 ### Prompt serialization
 
@@ -239,14 +271,29 @@ Tools: `move_to`, `pick`, `place`, `open`, `close`, `scan`, `handoff`, `report`,
 - **At execution (ground-truth check, tick `t + L`):** the object must still be there and the gripper must have free hands. If this fails, the failure is returned as text ("pick failed: plate not at sink") and logged as a **stale belief**.
 - Skill outcomes use per-agent success probabilities; failures return text to the LLM.
 
+Outcome categories, logged in `actions.jsonl`:
+
+| Outcome | Meaning |
+|---|---|
+| `hallucination` | Call-time: named an object not in the agent's beliefs |
+| `invalid_call` | Unknown tool, wrong arguments, or the agent's *own* state forbids it (not enough free hands, not holding the object, no scanner) |
+| `stale_belief` | Apply-time: the world no longer matches the belief (object moved or held by someone else, container closed or already open, teammate not adjacent) |
+| `skill_failure` | Preconditions held but the success roll failed (a failed `place` drops the object by the drop rule) |
+
+Self-state failures count as `invalid_call`, not `stale_belief`, so the stale-belief rate measures only world drift. That drift is what communication loss should worsen.
+
 ## 8. Communication channel
 
 ```python
-def delivery_prob(dist: float, walls_crossed: int, d0: float, alpha: float, wall_penalty: float) -> float:
-    return (1.0 / (1.0 + (dist / d0) ** alpha)) * (wall_penalty ** walls_crossed)
+def delivery_prob(
+    dist: float, walls_crossed: int, d0: float, alpha: float, wall_penalty: float
+) -> float:
+    return (1.0 / (1.0 + (dist / d0) ** alpha)) * (wall_penalty**walls_crossed)
 ```
 
 Final delivery probability also includes the swept base loss `p`. Optional latency `d` in ticks. Range `r` is a hard cutoff that creates partitions. Sample drops with a seeded RNG and log every message with its reason for loss (`loss`, `range`, `offline`).
+
+As built: delivery is `delivery_prob * (1 - p)`. Setting `d0: null` disables distance falloff, and perfect communication is `p = 0`, `r = null`, `d0 = null`, `wall_penalty = 1`. A message is delivered one hop tick plus `d` after it is sent. Range `r` is a single swept value for the whole team, not a capability-card field, so the `r` sweep is not confounded with per-agent radios. Distance for radio is Euclidean. BFS steps are for travel only.
 
 ## 9. Ledger and gossip
 
@@ -273,7 +320,8 @@ Append-only JSONL per episode. Every row records both `tick` and `wall_time`; on
 
 | File | One row per | Key fields |
 |---|---|---|
-| `events.jsonl` | Task event | tick, agent, task, transition (claimed, started, done, failed, reclaimed) |
+| `events.jsonl` | Task event | tick, agent, task, transition (claimed, started, done, failed, reclaimed; M1 logs done, reported, crashed, rejoined) |
+| `actions.jsonl` | Tool-call outcome | tick, agent, call, outcome (see §7), text |
 | `llm_calls.jsonl` | LLM call | tick issued, tick applied, `L`, prompt, raw response, parsed tool calls, tokens in/out, wall seconds |
 | `messages.jsonl` | Message | tick sent, sender, receiver, type (bid, gossip, negotiation), delivered or dropped, reason |
 | `ledgers.jsonl` | Agent every N ticks | each agent's ledger copy, for divergence vs ground truth |
@@ -292,13 +340,20 @@ Metrics are computed from logs afterwards, never inside the sim. The pixel-art v
 - Hardware: laptop RTX 4070 (8 GB) for development and pilots; UMBC cluster Slurm job arrays for sweeps.
 - Report results with a frontier-model ceiling check on a small subset.
 
-## 14. Planned code layout (not built yet)
+## 14. Code layout
+
+Built in M1 (LLM-free sim core):
 
 ```
-sim/            world.py, agent.py, perception.py, beliefs.py, ledger.py, channel.py, primitives.py, logger.py
-allocation/     cbba.py, murdoch.py, oracle.py, utility.py
-llm/            client.py (server client + cache), prompts/, latency.py
-configs/        one YAML per condition and sweep
-experiments/    run_single.py, launch_sweep.sh (Slurm), analyze.py
-tests/          unit tests for perception, ledger merge, channel, CBBA convergence
+sim/            config.py, world.py, pathing.py, perception.py, beliefs.py, channel.py,
+                agent.py (Policy seam), primitives.py, scenario.py, loop.py, logger.py
+allocation/     scripted.py (test scaffolding, not a condition)
+llm/            latency.py
+configs/        m1_smoke.yaml, m1_smoke_p05.yaml, maps/*.txt, missions/*.yaml
+experiments/    run_single.py
+tests/          pathing, perception, beliefs, channel, primitives, loop
 ```
+
+Still planned: `sim/ledger.py` (M2); `allocation/cbba.py` and `oracle.py` (M3); `llm/client.py`, `prompts/`, and `allocation/utility.py` (M4); `allocation/murdoch.py` (M5); `experiments/launch_sweep.sh` and `analyze.py` (M6).
+
+Map format (`configs/maps/*.txt`): legend lines `<char>: <room>`, then `---`, then the grid, where `#` is a wall. The mission YAML holds furniture and objects (cells, parents, visual and hidden attributes, hands), agents (capability card and pose), and tasks (description, goal conditions, `after` precedence, `language_only`). Quote `"on"` in YAML, because bare `on` parses as a boolean. The loader rejects unknown goal relations.
