@@ -35,7 +35,6 @@ tasks:
     description: Load the plate from the dining table into the dishwasher. It is fragile; carry it alone.
     goals: [[plate_2, in, dishwasher_1]]
     after: [t_open]
-    language_only: true
     steps: [[pick, plate_2], [place, plate_2, dishwasher_1]]
   - id: t_mug
     description: Put the mug from the dining table on the shelf.

@@ -1,0 +1,16 @@
+# Checks a cluster setup end to end (docs/design/cluster.md): one kitchen C3 episode, about
+# 10-20 minutes on one GPU. cluster/submit.sh configs/sweeps/cluster_smoke_llm.yaml 1
+# The laptop's run of the same episode finished 7 of 10 tasks (Nov 10); expect a similar count,
+# not the same one (replies can differ across GPUs and llama.cpp builds).
+experiment: smoke_llm_cluster
+episodes:
+  - configs/m2_home_llm_cbba.yaml
+envs: [m2_home]
+first_seed: 0
+seeds: 1
+loss_levels: []
+range_levels: []
+churn: null
+workers: 1
+llm:
+  model_path: /models/Qwen3-8B-Q4_K_M.gguf

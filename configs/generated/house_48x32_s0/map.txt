@@ -1,0 +1,41 @@
+a: kitchen_1
+b: kitchen_2
+c: dining_1
+d: living_1
+e: bedroom_1
+f: study_1
+g: laundry_1
+z: outside
+---
+################################################
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccccbbbbbbbbbbbbbbbb#gggggggggggggg#zzz#
+#cccccccccccbbbbbbbbbbbbbbbb####gg##########zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#dddddddddddddd#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#dddddddddddddd#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#dddddddddddddd#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#dddddddddddddd#zzz#
+#cccccccccc#bbbbbbbbbbbbbbbb#dddddddddddddd#zzz#
+###############bb############dddddddddddddd#zzz#
+#aaaaaaaaaaaaaaaaaafffffffff#dddddddddddddd#zzz#
+#aaaaaaaaaaaaaaaaaafffffffff#dddddddddddddd#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#dddddddddddddddzzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#dddddddddddddddzzz#
+#aaaaaaaaaaaaaaaaa#fffffffff##########dd####zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#ffffffffffeeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#ffffffffffeeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+#aaaaaaaaaaaaaaaaa#fffffffff#eeeeeeeeeeeeee#zzz#
+################################################

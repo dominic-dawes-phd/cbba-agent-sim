@@ -13,7 +13,7 @@
 \setlength{\pdfpagewidth}{8.5in}
 \setlength{\pdfpageheight}{11in}
 
-\title{Leaderless Semantic Allocation: Measuring What Consensus Auctions Buy LLM-Driven Robot Teams Under Communication Degradation and Agent Churn}
+\title{Leaderless Semantic Allocation: Evaluating Consensus-Auction Agent Teaming Under Communication Degradation and Agent Churn}
 \author{
     Dominic Dawes\textsuperscript{\rm 1}
 }
@@ -26,17 +26,38 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-As robot teams adopt large language and vision-language models (LLMs/VLMs) as per-agent reasoners, coordination is expected to hold outside controlled facilities, where communication links are range-limited or degraded and agents drop out of and rejoin the team mid-mission. Current LLM-driven multi-robot systems coordinate through a centralized orchestrator or through natural-language negotiation between agents, and are evaluated almost exclusively under perfect communication. Under packet loss or network partition, agents may claim the same task, abandon tasks held by a failed teammate, or act on a stale belief of what has been completed. None of these failures is detected before it reaches the environment.
+As robot teams move from controlled closed environments and scale to real world applications, coordination is expected to be resilient in the presence of range limited communication links, agent drop out, and rejoining mid-mission. Current LLM-driven multi-robot systems coordinate through a centralized orchestrator or through natural-language negotiation between agents, and are evaluated almost exclusively under perfect communication. Under packet loss or network partition, agents may claim the same task, abandon tasks held by a failed teammate, or act on a stale belief of current task state. None of these failures is detected before it reaches the environment.
 
-Classical decentralized allocation algorithms, both consensus-based (CBBA) and market-based (MURDOCH, TraderBots), provide conflict-free assignment and degrade gracefully under changing network topology, but they score tasks with hand-specified numeric utilities that cannot represent constraints stated only in natural language. Recent decentralized LLM frameworks recover semantic reasoning but reintroduce elected leaders and do not isolate the effect of communication impairment. We ask whether grounding per-agent LLM reasoning in a consensus auction preserves coordination under degraded communication and agent churn, and what that added structure costs relative to unconstrained LLM coordination.
+Classical decentralized allocation algorithms, both consensus-based (CBBA) and market-based (MURDOCH, TraderBots), provide conflict-free assignment and degrade gracefully under changing network topology, but they score tasks with hand-specified numeric utilities over a few features such as distance and capability match. Adding richer context, such as the scene, a robot's battery level and execution history, or a teammate that has gone silent, requires further expert engineering. We ask three questions: does an auction keep LLM teams coordinated as missions scale; do LLM-generated utilities improve allocation over numeric ones; and does LLM reasoning make auction-based teams more resilient to degraded communication and agent churn?
 
-We propose a leaderless architecture in which each agent's LLM generates a bundle-independent utility $u_{ij}$ for each task $\tau_j$ from the task's natural-language description and the agent's capabilities. A consensus auction resolves the allocation, and each agent executes its bundle by tool-calling action primitives. Allocation and execution state are held in a replicated per-agent ledger with monotone task status and lease-based ownership, and each agent's action history is compacted after $N$ entries. We evaluate five coordination conditions: a centralized oracle with ground-truth feasibility, decentralized LLM-only negotiation, CBBA with numeric-only utilities, LLM+CBBA, and LLM+MURDOCH. Each condition is run under perfect communication and swept across packet loss rate $p$, communication range $r$, and $k$-agent dropout and rejoin, in a heterogeneous multi-robot task environment. We measure utility relative to the oracle, duplicate and orphaned task rates, recovery time after dropout, ledger divergence, and token and message cost.
+We propose a leaderless architecture in which each agent's LLM generates a bundle-independent utility $u_{ij}$ for each task $\tau_j$ from the task description, a symbolic scene graph, the agent's capabilities and battery level, and its tool-call history. A consensus auction resolves the allocation, and each agent executes its bundle by tool-calling action primitives. Allocation and execution state are held in a replicated per-agent ledger with monotone task status and lease-based ownership. We compare LLM-only negotiation, numeric-utility CBBA, and LLM-utility auctions (LLM+CBBA, LLM+MURDOCH) against a centralized oracle, a greedy nearest-task baseline, and an elected-leader LLM baseline, and ablate the ledger. Each condition is run under perfect communication and swept across the number of tasks, task difficulty, and team size, and across packet loss rate $p$, communication range $r$, and $k$-agent dropout and rejoin, in a heterogeneous multi-robot household simulation. We measure utility relative to the oracle, success and partial-success rates, makespan, duplicated and orphaned tasks, recovery time after dropout, ledger divergence, and token and message cost.
 
-We hypothesize the following. First, LLM-generated utilities close the gap to the oracle in proportion to the fraction of tasks carrying language-only constraints; where constraints are purely geometric, numeric CBBA matches LLM+CBBA at a fraction of the cost. Second, we expect robustness and reasoning to come apart: LLM-only teams degrade sharply as $p$ rises and $r$ shrinks, through duplicated and orphaned tasks, while auction-based teams degrade gracefully, so the robustness gain is attributable to consensus and the replicated ledger rather than to the LLM. Finally, we expect a connectivity threshold below which consensus fails to converge within the replanning horizon, and below which greedy LLM-only coordination outperforms the auction.
+We hypothesize the following. First, LLM-only teams degrade as the number of tasks, task difficulty, and team size grow, through duplicated, orphaned, and conflicting work, while auction-based teams do not. Second, LLM utilities achieve higher utility relative to the oracle than numeric utilities, at a measurable token cost. Third, under packet loss, reduced range, and agent churn, LLM-utility auctions degrade less and recover faster than numeric auctions, beyond what the replicated ledger alone provides.
 \end{abstract}
 
 \section{Introduction}
-...
+
+Teams of robots can complete work that a single robot cannot, from warehouse fulfillment \citep{agaskar2025deepfleet} to household chores \citep{chang2025partnr}. Dividing a long task list across robots shortens the mission, lets robots with different capabilities specialize, and keeps the team productive when one member fails.
+
+Single-robot manipulation has advanced rapidly: vision-language-action (VLA) foundation models now fold laundry, fold origami, and perform language-conditioned bimanual manipulation \citep{black2025pi0, gemini2025robotics, nvidia2025gr00t}. Long-horizon missions carried out by a multi-robot team remain much harder, and the difficulty grows with team size and mission length. The team must decide who does what, keep a shared record of what is finished, and keep working when inter-robot links degrade or a robot goes offline.
+
+Multi-robot task allocation has been addressed with algorithmic and learned methods. Algorithmic methods include contract-net and market-based auctions \citep{smith1980contract, dias2000free, dias2004traderbots, gerkey2002sold} and consensus-based bundle auctions \citep{choi2009cbba, johnson2011acbba}. These guarantee conflict-free assignments once bids converge, and their behavior under changing topology and message loss has been studied extensively \citep{ponda2010dynamic, otte2020auctions, degradedmrta2026}. Learned methods train coordination models for a specific fleet and workload \citep{wang2020gatsched, agaskar2025deepfleet}. Both demand substantial expert effort: algorithmic methods need a hand-designed numeric utility for every task type, typically over a few features such as distance and capability match, and learned methods need a bespoke architecture and training data. Adding richer context to a numeric score, such as a robot's battery level, its recent failed grasps, or a teammate that has gone silent, means more hand engineering. We argue that this burden limits transfer to new tasks and teams.
+
+Large language models (LLMs) offer another route. Advances in LLM reasoning and in agent harnesses that interleave reasoning with tool calls and environment feedback \citep{yao2023react} now support long-horizon agentic work, and several systems apply LLMs to multi-robot planning and coordination \citep{mandi2024roco, kannan2024smartllm, chen2024scalable, zhang2024coela, liu2025coherent, zhang2025lammap, nayak2024llamar}. Collaborative autonomy is also reaching practice: one VLA has run on two humanoids that jointly put away groceries neither had seen before \citep{figure2025helix}. Several VLAs adopt a dual-system design in which a slow vision-language module (System~2) interprets the scene and instruction, and a fast visuomotor policy (System~1) outputs continuous actions \citep{nvidia2025gr00t, figure2025helix}. This design places a language-capable reasoner at the top of each robot, which is where task-level coordination belongs.
+
+Existing LLM teams use this reasoner in one of three ways. A central LLM decomposes the mission and assigns subtasks \citep{kannan2024smartllm, liu2025coherent, zhang2025lammap}; agents negotiate in natural-language dialogue \citep{mandi2024roco, zhang2024coela, chen2024scalable}; or, in a recent decentralized framework, agents elect a leader for each task \citep{dynahmrc2026}. A large embodied benchmark finds that LLM agents struggle to track task status and to recover from errors \citep{chang2025partnr}.
+
+These designs have three drawbacks. First, a central orchestrator or elected leader is a single point of failure and cannot reach teammates that are out of range. Second, dialogue has no mechanism that guarantees agreement. Under packet loss or partition, two agents may claim the same task, a failed teammate's task may be abandoned, or an agent may act on a stale view of what is done, and nothing catches these failures before they reach the environment. Without the structure of a planner or allocator, these errors compound as the number of tasks and agents grows. Third, the LLM-team works we reviewed assume reliable messaging or model communication only as a cost \citep{zhang2024coela}. Coordination under degraded links and agent churn is therefore unmeasured for LLM teams, although impairment-sweep protocols exist for other cooperative settings \citep{bansal2026agentcomm}.
+
+We aim to keep the strengths of both families. Each robot's LLM reasons over context that a hand-designed score omits, namely the scene graph and the robot's capabilities, battery level, and tool-call history, to produce task utilities, while a leaderless consensus auction allocates the tasks. We ask three questions. Does the auction keep LLM teams coordinated as missions scale? Do LLM utilities improve allocation over numeric ones? Does LLM reasoning make auction-based teams more resilient when communication degrades and agents drop out and rejoin?
+
+We call this design \emph{leaderless semantic allocation} (Fig.~\ref{fig:architecture}). Each agent's LLM maps a task description and the agent's context to a utility $u_{ij}$. Because $u_{ij}$ does not depend on the rest of the bundle, CBBA's convergence guarantee is preserved, and CBBA \citep{choi2009cbba} resolves the allocation without a leader, and an LLM executor carries out each bundle through tool calls to action primitives. Allocation and execution state live in a replicated per-agent ledger with monotone, CRDT-style task status \citep{shapiro2011crdt}, lease-based ownership \citep{gray1989leases}, and gossip synchronization \citep{demers1987epidemic}. Because the ledger is never compacted, each agent's narrative action history can be compacted after $N$ entries without losing the shared record of what is done.
+
+We evaluate three families of coordination in simulated households with generated layouts, LLM-only, numeric auction, and LLM auction, through five conditions: a centralized oracle with ground-truth feasibility (C0), RoCo-style LLM dialogue \citep{mandi2024roco} (C1), numeric-utility CBBA (C2), CBBA with LLM utilities (C3), and MURDOCH-style single-item auctions with LLM utilities \citep{gerkey2002sold} (C4). We add a greedy nearest-task baseline, a DynaHMRC-style elected-leader baseline \citep{dynahmrc2026}, and ablations that remove the ledger. Each condition runs under perfect communication and is then swept over mission scale (number of tasks $m$, task difficulty, and team size $n$) and over communication (packet loss $p$, range $r$, and $k$-agent dropout and rejoin). We measure utility relative to the oracle, success and partial success, makespan, duplicated and orphaned work, recovery time after dropout, ledger divergence, and token and message cost.
+
+We test three hypotheses. \textbf{H1 (structure):} as $m$, task difficulty, and $n$ grow, LLM-only teams degrade through duplicated, orphaned, and conflicting work, while auction-based teams do not. \textbf{H2 (reasoning):} LLM utilities achieve higher utility relative to the oracle than numeric utilities, at a measurable token cost. \textbf{H3 (resilience):} under packet loss, shrinking range, and agent churn, LLM-utility auctions degrade less and recover faster than numeric auctions, beyond what the replicated ledger alone provides.
+
+To our knowledge, this is the first study to combine per-agent LLM utilities with a leaderless consensus auction and a replicated execution ledger, and to evaluate that combination against an oracle under swept packet loss, communication range, and agent churn. Decentralized LLM teams with changing membership exist \citep{dynahmrc2026}, as do classical auctions under degraded communication \citep{ponda2010dynamic, otte2020auctions, degradedmrta2026}; our contribution is the combination and the controlled comparison.
 
 \begin{figure*}[t]
   \centering
@@ -52,6 +73,89 @@ We hypothesize the following. First, LLM-generated utilities close the gap to th
   \label{fig:architecture}
 \end{figure*}
 
+\section{Approach}
+
+\subsection{Problem Formulation}
+
+A team of $n$ heterogeneous agents $a_1,\dots,a_n$ must complete tasks $\tau_1,\dots,\tau_m$ in a household. Each task is a text description with a recipe of primitive steps, and it is done only when its ground-truth goal check holds, never on an agent's say-so. Agents differ in their capability cards (hands, speed, a scanner). Each agent perceives its surroundings through a deterministic perception module that builds a symbolic scene graph, which can go stale. A skill's success or failure returns to its agent as text. Agents start knowing no task: a task becomes known when an agent sees what it is about or a teammate announces it, so $m$ can grow during a mission. Agents exchange messages over a channel with loss probability $p$ and range $r$, and $k$ agents may crash and later rejoin. No agent holds a privileged role. The objective is to complete every task in the fewest simulated ticks; deliberation costs ticks (Sec.~\ref{sec:setup}).
+
+\subsection{Method}
+
+\paragraph{LLM utilities.}
+An agent's LLM supplies only a suitability score. When an agent learns of tasks it has not yet scored, its next decision begins with one batched call that takes its capability card and the descriptions of those tasks and returns an integer score from 0 to 100 per task. Dividing by 100 gives $u_{ij}\in[0,1]$ for agent $a_i$ and task $\tau_j$. A score is computed once per $(a_i,\tau_j)$ and cached for the episode. TODO(user): the call currently receives only the capability card and task text; the scene graph, gripper state, and action history are available to the harness and are the planned extra inputs, which also requires a rule for when to recompute a cached score. Distance is not asked of the LLM: agent $a_i$ bids $c_{ij}=u_{ij}\,\lambda^{d_{ij}}$, where $d_{ij}$ is the BFS path length from its current cell to the task and $\lambda=0.97$, the same path function every condition uses.
+
+\paragraph{Leaderless allocation.}
+Each agent runs CBBA~\citep{choi2009cbba} in code, never in its LLM. It builds a bundle $b_i$ of up to three tasks, adding the task with the best bid that beats the winning bid $y_{ij}$ it currently knows of. It broadcasts its winning bids, winners and timestamps when they change and every 10 ticks, and resolves conflicts with the paper's update table. An agent outbid on a task drops it and every task added after it. Once an agent starts a task its bid is raised so that no teammate outbids work already under way. Because $u_{ij}$ does not depend on the rest of the bundle, the score has diminishing marginal gains trivially, the condition CBBA's convergence argument needs~\citep{choi2009cbba}. Conflict-freedom holds only among agents that can reach each other; across a partition two agents can win the same task. The MURDOCH-style variant~\citep{gerkey2002sold} replaces bundles with single-item auctions: whoever discovers a task auctions it, collects bids for a fixed window, and awards it to the best bidder, whose ownership is renewed while it works and which is re-auctioned on failure. TODO(user): how $u_{ij}$ maps to a MURDOCH bid is still an open design question.
+
+\paragraph{Replicated ledger.}
+Each agent holds its own replica of a task ledger that maps each task to $\langle$status, owner, bid, version, lease expiry$\rangle$. Status advances through unclaimed, claimed, in progress and done, and done is absorbing. Replicas merge by a fixed total order (done first, then higher version, status, bid, lower owner id, later lease), so merging is commutative, associative and idempotent: replicas agree once they have received the same rows, in any order~\citep{shapiro2011crdt}. A claim carries a lease of 60 ticks that its owner renews while working; a lapsed lease reopens the task, which is how a crashed or out-of-range owner's tasks are reclaimed~\citep{gray1989leases}. A release or a reclaim reopens a task under a higher version, so it wins the merge. Rows spread by gossip over the same lossy channel as every other message: changed rows are broadcast at once and the full ledger every 10 ticks~\citep{demers1987epidemic}. A healthy owner cut off by a partition can lose its lease, which we count as a false positive. The ledger is never compacted, because it is the only shared record of what is done. The narrative action history is compacted instead: the last $N=8$ actions stay verbatim and earlier ones become one summary line.
+
+\paragraph{Execution.}
+Each agent's LLM executes the head of its bundle by tool calls to action primitives (\texttt{move\_to}, \texttt{explore}, \texttt{search}, \texttt{pick}, \texttt{place}, \texttt{open}, \texttt{close}, \texttt{start}, \texttt{lock}, \texttt{unlock}, \texttt{tie\_bag}, \texttt{scan}, \texttt{wait}) plus \texttt{mark\_done} and \texttt{give\_up}. In a loop in the style of ReAct~\citep{yao2023react}, it sees its scene graph, capabilities, task and recipe, bundle and ledger rows, and recent actions, and replies with a short thought and up to three calls. It can use \texttt{mark\_done} and \texttt{give\_up} only for its own task. LLM calls occur only at decision points (a skill ends or fails, a message arrives, a task changes), and skills run for many ticks without one. Code, not the LLM, edits ledger rows and places bids.
+
+\section{Experiments}
+
+\subsection{Setup}
+\label{sec:setup}
+
+\paragraph{Simulator and environment.}
+We use a discrete-time grid simulator in which perception, path lengths and low-level skills (the fast system) are deterministic code, and an agent's LLM chooses the next skill at each decision point. Missions are seeded generated houses with rooms joined by doors and an outdoor strip. The baseline house is $48\times32$ cells with seven rooms and 22 initial tasks of several kinds: washing clusters of dirty dishes, unpacking dishwashers, packing groceries, taking out trash, and putting away 12 stray objects. Appliances are shared and exclusive, and washed dishes later create unload tasks, so the task count grows during a run. The baseline team has $n=6$ agents: two two-handed and two one-handed arms at speed 1, and two one-handed carriers at speed 2, one of which has a scanner. All agents see 8 cells in all directions and start at seeded uniform cells.
+
+\paragraph{Time and model.}
+All times are simulated ticks. A model call costs ticks computed from its token counts at fixed reference rates (2000 prefill and 40 decode tokens per second, one second per tick), so no result depends on hardware speed; wall-clock seconds and tokens are logged as costs only. All agents share one model server. TODO(user): final model (candidates: Qwen3-8B and Ministral~3~8B, Q4\_K\_M on llama.cpp; the bake-off is unfinished), temperature 0, seed 0, thinking off. An episode ends when every task is done or voided or at a tick budget of four times the slowest oracle replay on that house; an unfinished episode counts as a failure and has no makespan, and we report the number censored. TODO(user): seeds per cell. Conditions run on the same house and seed share spawn cells and random draws, and we compare them as paired differences with 95\% bootstrap confidence intervals.
+
+\subsection{Conditions and Baselines}
+
+Table~\ref{tab:conditions} lists the conditions. They share perception, skills and task recipes, so each comparison changes one layer: allocator, utility source, shared state, or LLM role. C0 plans with CP-SAT~\citep{perron2023cpsat,perron2026cpsat} on ground truth and reports a proven bound in its planning model, and all other conditions are measured against its replay in the simulator. C1 follows RoCo~\citep{mandi2024roco}: agents talk in turn within each connected component, with no ledger. C4 has no numeric-utility counterpart, so C3 against C4 changes the auction family and the utility effect is read within CBBA (C2 against C3).
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}llccl@{}}
+\toprule
+ID & Allocation & Utility & Ledger & LLM role \\
+\midrule
+C0 & central CP-SAT, ground truth & truth & -- & none \\
+C1 & RoCo-style dialogue & implicit & no & talks, acts \\
+C2 & CBBA & path cost & yes & acts \\
+C3 & CBBA & LLM $u_{ij}$ & yes & scores, acts \\
+C4 & MURDOCH-style auction & LLM $u_{ij}$ & yes & scores, acts \\
+G & nearest task, broadcast claim & path cost & no & acts \\
+L & elected leader assigns all & leader's & no & assigns, acts \\
+C1+ledger & dialogue & implicit & yes & talks, acts \\
+C3$-$ledger & CBBA & LLM $u_{ij}$ & no & scores, acts \\
+\bottomrule
+\end{tabular}
+\caption{Conditions. The LLM executes in every row except C0.}
+\label{tab:conditions}
+\end{table}
+
+\subsection{Sweeps}
+
+Each condition runs at a baseline of perfect communication, no churn, medium difficulty, and a drop probability of 0.025 per carried pick, place or move. Each sweep moves one factor from that baseline, and we cross factors only where a hypothesis claims an interaction.
+
+\paragraph{Mission scale (H1, H2).}
+We vary the number of tasks $m\in\{11,22,44\}$, holding task density by scaling the house ($32\times24$, $48\times32$, and $64\times48$ cells, with 5, 7, and 10 rooms); the team size $n\in\{3,6,12\}$, keeping the mix of arms and carriers; and task difficulty. Difficulty keeps $m$ fixed and sets the coupling between tasks and the load of each: easy, medium, and hard use dish clusters of 1, 1 to 3, and 3 to 4 tiles holding stacks of 1 to 2, 1 to 5, and 3 to 5 dishes, so the wash tasks that hold an exclusive dishwasher grow longer.
+
+\paragraph{Communication (H3).}
+Packet loss $p\in\{0,0.1,0.3,0.5,0.7\}$, range $r\in\{\infty,16,12,8,6,4\}$ cells, and $k\in\{0,1,2\}$ agents that crash at a seeded tick and rejoin after a fixed delay, with memory kept or wiped. TODO(user): crash window and rejoin delay. Following~\citet{bansal2026agentcomm}, we report each condition's normalized performance drop $(s_{\text{perfect}}-s_{\text{level}})/s_{\text{perfect}}$, so a condition with a low ceiling does not look robust for having less to lose.
+
+\subsection{Metrics}
+
+All metrics are computed from the run logs. \texttt{makespan\_vs\_oracle}: an episode's makespan over C0's replayed makespan on the same house and seed, our measure of utility relative to the oracle. \texttt{success}: every task done, none voided; \texttt{partial\_success}: the share of tasks done; \texttt{within\_budget}: the episode finished inside the tick budget. \texttt{duplicate\_work\_ticks}: agent-ticks spent on a task another agent finished; \texttt{contested\_tasks}: tasks worked on by more than one agent. \texttt{orphan\_delays}: ticks from a crash to the completion of the crashed agent's task, our recovery time after dropout. \texttt{ledger\_lag\_final}: the share of (agent, done task) pairs whose final replica does not show the task done, our measure of ledger divergence. \texttt{tokens\_per\_task} and \texttt{messages\_per\_task}: model tokens and non-coverage messages per completed task.
+
+\subsection{Results}
+
+TODO(user): results pending; no run of these conditions has produced paper results.
+
+\paragraph{H1: Structure.}
+Placeholder: a figure of \texttt{success}, \texttt{makespan\_vs\_oracle}, and \texttt{duplicate\_work\_ticks} against $m$, difficulty, and $n$ for C1, C2, C3, and G. The hypothesis is supported if C1's success falls and its duplicated work rises as scale grows while the auction conditions stay near flat; it is refuted if the auction conditions degrade as much as C1, or C1 does not degrade.
+
+\paragraph{H2: Reasoning.}
+Placeholder: a table of paired C3-minus-C2 differences in \texttt{makespan\_vs\_oracle} and \texttt{success}, with \texttt{tokens\_per\_task} and utility calls, at the baseline and each scale level. The hypothesis is supported if C3's gap to C0 is smaller with a confidence interval that excludes zero, at a reported token cost; it is refuted if the interval includes zero or C3 is worse.
+
+\paragraph{H3: Resilience.}
+Placeholder: figures of normalized performance drop against $p$ and $r$, and of tasks outstanding after a crash, for C1, C2, C3, and C3$-$ledger, plus \texttt{orphan\_delays}. The hypothesis is supported if C3's drop is smaller and its recovery faster than C2's (both have the ledger, so the difference is the utility source), with C3$-$ledger separating the ledger's share. Any resilient or emergent behaviour from LLM reasoning is reported only if these paired comparisons show it.
+
 \section{Related Work}
 \label{sec:related}
 
@@ -63,7 +167,7 @@ We group prior work into five areas: classical decentralized task allocation, al
 The Contract Net Protocol~\citep{smith1980contract} introduced announce--bid--award negotiation, in which a manager broadcasts a task and contractors bid to perform it. Every auction-based allocator we evaluate descends from this protocol. It assumes reliable messaging and numeric eligibility, whereas we evaluate bidding with LLM-derived utilities over a lossy channel.
 
 \paragraph{Free-market architecture.}
-\citet{dias2000free} proposed a market architecture in which robots trade tasks to maximize individual profit, which in aggregate lowers team cost. This work began the TraderBots line that our framing builds on. Its utilities are numeric revenue and cost functions and cannot express constraints stated only in natural language.
+\citet{dias2000free} proposed a market architecture in which robots trade tasks to maximize individual profit, which in aggregate lowers team cost. This work began the TraderBots line that our framing builds on. Its utilities are hand-designed numeric revenue and cost functions, so richer context needs more engineering.
 
 \paragraph{TraderBots.}
 \citet{dias2004traderbots} developed the market approach into TraderBots, which aims for the solution quality of centralized planning with the robustness of distributed planning, including recovery from robot failure and communication loss. It addresses the same robustness question our churn sweep measures. We do not implement TraderBots as a condition for scope reasons, and our agents compute utilities with an LLM rather than engineered cost functions.
@@ -91,7 +195,7 @@ The Consensus-Based Bundle Algorithm~\citep{choi2009cbba} has each agent greedil
 \subsection{LLM-Driven Multi-Robot Coordination}
 
 \paragraph{RoCo.}
-In RoCo~\citep{mandi2024roco}, each robot arm has an LLM that negotiates subtasks in dialogue, and a motion planner then validates and executes the agreed plan. It serves as the template for our LLM-only negotiation baseline. RoCo assumes synchronous, reliable dialogue among two or three arms and uses no allocation algorithm, so it does not test coordination under packet loss or churn.
+In RoCo~\citep{mandi2024roco}, each robot arm has an LLM that negotiates subtasks in dialogue, and a motion planner then validates and executes the agreed plan. It serves as the template for our LLM-only negotiation baseline: we keep its prompt structure and its round protocol, in which agents speak in turn until one proposes a joint plan, but run each round only among the agents a lossy channel connects, without a shared ledger. RoCo assumes synchronous, reliable dialogue among two or three arms and uses no allocation algorithm, so it does not test coordination under packet loss or churn.
 
 \paragraph{SMART-LLM.}
 \citet{kannan2024smartllm} use a single LLM to decompose instructions, form coalitions, and allocate subtasks to heterogeneous robots. It represents the centralized-orchestrator approach our abstract contrasts against. It assumes perfect communication with the orchestrator, whereas we study leaderless allocation under impairment.
@@ -112,7 +216,7 @@ LLaMAR~\citep{nayak2024llamar} uses a plan--act--correct--verify loop for multi-
 \citet{zhang2024coela} build modular LLM agents with perception, memory, communication, and planning modules that decide what and when to communicate under a communication cost. It overlaps with our work in treating communication as costly and in keeping per-agent memory. It studies two agents, and messages are costly but never lost or partitioned; no auction is used.
 
 \paragraph{DynaHMRC.}
-DynaHMRC~\citeyearpar{dynahmrc2026} coordinates decentralized LLM robots through constrained per-agent context, low-frequency group discussion, and leader bidding, and evaluates them under changing goals, team compositions, no-go zones, and action constraints. It is the work most directly comparable to ours, since it targets decentralized heterogeneous LLM teams whose composition changes. It relies on elected leaders and group discussion rather than a leaderless consensus auction, and it does not sweep packet loss or communication range.
+DynaHMRC~\citep{dynahmrc2026} coordinates decentralized LLM robots through role-aware agents, task allocation with leadership bidding, leader election, and reflective execution, and evaluates them on household tasks under changing goals, temporarily restricted zones, and collaborators that join or leave mid-task. It reports success, partial success, step counts, and communication cost against MCTS and CoELA baselines. It is the work most directly comparable to ours, since it targets decentralized heterogeneous LLM teams whose composition changes, so agent churn alone does not distinguish our setting. It elects one leader per task, which stays fixed for that task, rather than resolving allocation by a leaderless consensus auction, and it assumes reliable messaging: it does not sweep packet loss or communication range. Our elected-leader baseline tests that design choice directly.
 
 \subsection{Task Tracking, Replicated State, and Agent Loops}
 
@@ -120,7 +224,7 @@ DynaHMRC~\citeyearpar{dynahmrc2026} coordinates decentralized LLM robots through
 \citet{chang2025partnr} released a benchmark of 100,000 human--robot household tasks in Habitat for testing LLM agents, tracking task failures and error recovery. Its documented task-tracking failures motivate our replicated execution ledger. However, PARTNR involves only two agents and assumes perfect communication.
 
 \paragraph{ConceptGraphs.}
-\citet{gu2024conceptgraphs} build open-vocabulary 3D scene graphs that LLM planners can query for objects and their spatial relations. The representation applies to our simulator and could serve as a perception front end for language-only object attributes. It addresses single-robot perception, and our experiments keep perception symbolic.
+\citet{gu2024conceptgraphs} build open-vocabulary 3D scene graphs that LLM planners can query for objects and their spatial relations. The representation applies to our simulator and could serve as a perception front end for the scene-graph context in utilities. It addresses single-robot perception, and our experiments keep perception symbolic.
 
 \paragraph{Epidemic algorithms.}
 \citet{demers1987epidemic} is a foundational distributed-systems paper that introduced gossip and anti-entropy protocols for keeping database replicas consistent. We use anti-entropy gossip over a lossy channel to propagate our ledger. It targets replicated databases rather than robots acting on a shared task state.
@@ -140,7 +244,7 @@ ReAct~\citep{yao2023react} is a seminal agent-loop paper that interleaves reason
 \citet{bansal2026agentcomm} sweep six communication impairments across cooperative perception, navigation, and search, finding performance drops above 96\% in navigation under stale memory and bandwidth collapse, and recommend reporting results under several impairment conditions. We adopt its impairment-sweep protocol and normalized performance-drop metric. It does not include LLM agents or task allocation.
 
 \paragraph{Summary.}
-Classical allocators offer conflict-free assignment and graceful degradation but cannot read language-only constraints, while LLM-driven teams read those constraints but rely on central orchestrators, elected leaders, or reliable messaging. To our knowledge, no prior work combines per-agent LLM utilities with a leaderless consensus auction and a replicated execution ledger, and evaluates the combination against an oracle under swept packet loss, communication range, and agent churn.
+Classical allocators offer conflict-free assignment and graceful degradation but score tasks with hand-designed numeric utilities, while LLM-driven teams reason over richer context but rely on central orchestrators, elected leaders, or reliable messaging. To our knowledge, no prior work combines per-agent LLM utilities with a leaderless consensus auction and a replicated execution ledger, and evaluates the combination against an oracle under swept packet loss, communication range, and agent churn.
 
 \bibliography{references}
 

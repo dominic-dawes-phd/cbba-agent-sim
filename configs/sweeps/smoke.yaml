@@ -1,0 +1,9 @@
+# A seconds-long check that the sweep runner works: python -m experiments.sweep configs/sweeps/smoke.yaml
+experiment: smoke
+episodes: [configs/m1_smoke.yaml]
+first_seed: 0
+seeds: 2
+loss_levels: [0.3]
+range_levels: [4]
+churn: null               # null: no churn cell
+workers: 4

@@ -1,11 +1,12 @@
 import dataclasses
 import json
+import tomllib
 from pathlib import Path
 
 from experiments.run_single import run_config
 from sim.agent import DecisionRequest, DecisionResponse, ToolCall
-from sim.config import ChurnConfig, LatencyConfig, load_config
-from sim.logger import LOG_STREAMS, EpisodeLogger
+from sim.config import PYPROJECT_PATH, ChurnConfig, LatencyConfig, load_config
+from sim.logger import LOG_STREAMS, EpisodeLogger, read_stream
 from sim.loop import run_episode
 from sim.scenario import load_scenario
 
@@ -26,7 +27,7 @@ class FixedPolicy:
 
 
 def read_rows(run_dir, stream):
-    return [json.loads(line) for line in (run_dir / f"{stream}.jsonl").read_text().splitlines()]
+    return read_stream(run_dir, stream)
 
 
 def without_wall_fields(rows):
@@ -44,6 +45,9 @@ def test_smoke_mission_completes(tmp_path):
     run_dir, final_tick = run_config(config)
     assert done_tasks(run_dir) == TASK_IDS
     assert final_tick < config.max_ticks - 1
+    run_record = json.loads((run_dir / "run.json").read_text())
+    with PYPROJECT_PATH.open("rb") as handle:
+        assert run_record["sim_version"] == tomllib.load(handle)["project"]["version"]
 
 
 def test_same_seed_gives_identical_logs(tmp_path):
@@ -57,17 +61,36 @@ def test_same_seed_gives_identical_logs(tmp_path):
 
 
 def test_packet_loss_drops_messages_and_slows_the_team(tmp_path):
-    perfect_dir, perfect_tick = run_config(
-        dataclasses.replace(load_config(SMOKE), output_dir=tmp_path / "perfect")
-    )
-    lossy_dir, lossy_tick = run_config(
-        dataclasses.replace(load_config(SMOKE_P05), output_dir=tmp_path / "lossy")
-    )
-    reasons = {row["reason"] for row in read_rows(lossy_dir, "messages")}
-    assert "loss" in reasons
-    assert {row["outcome"] for row in read_rows(perfect_dir, "messages")} == {"delivered"}
-    assert done_tasks(lossy_dir) == TASK_IDS
-    assert lossy_tick > perfect_tick
+    perfect_ticks, lossy_ticks = [], []
+    for seed in range(10):
+        perfect_dir, perfect_tick = run_config(
+            dataclasses.replace(
+                load_config(SMOKE), output_dir=tmp_path / f"perfect_{seed}", seed=seed
+            )
+        )
+        lossy_dir, lossy_tick = run_config(
+            dataclasses.replace(
+                load_config(SMOKE_P05), output_dir=tmp_path / f"lossy_{seed}", seed=seed
+            )
+        )
+        assert "loss" in {row["reason"] for row in read_rows(lossy_dir, "messages")}
+        assert {row["outcome"] for row in read_rows(perfect_dir, "messages")} == {"delivered"}
+        assert done_tasks(lossy_dir) == TASK_IDS, seed
+        perfect_ticks.append(perfect_tick)
+        lossy_ticks.append(lossy_tick)
+    # Slower on average, not on every seed: each delivered message makes its receiver re-decide,
+    # paying L ticks, so a seed that loses few important messages can come out ahead.
+    assert sum(lossy_ticks) > sum(perfect_ticks)
+
+
+def test_reports_of_a_finished_task_do_not_advance_the_next_one(tmp_path):
+    # Seed 3 at 50% loss: arm_a waits for t_plate2 before t_close while re-broadcasting t_pot's
+    # report. That report's result once matched a stale "last sent step" and skipped the close.
+    config = dataclasses.replace(load_config(SMOKE_P05), output_dir=tmp_path, seed=3)
+    run_dir, final_tick = run_config(config)
+    closes = [row for row in read_rows(run_dir, "actions") if row["call"][0] == "close"]
+    assert closes and done_tasks(run_dir) == TASK_IDS
+    assert final_tick < config.max_ticks - 1
 
 
 def test_actions_apply_after_latency_while_teammates_act(tmp_path):
@@ -112,3 +135,27 @@ def test_churn_crashes_and_rejoins_an_agent(tmp_path):
     assert [row["tick"] for row in crashed] == [5]
     assert [(row["agent"], row["tick"]) for row in rejoined] == [(crashed[0]["agent"], 15)]
     assert done_tasks(run_dir) == TASK_IDS
+
+
+def test_logged_belief_changes_rebuild_each_agents_final_graph(tmp_path):
+    # The compact logs keep no periodic belief copies, so the changes must carry everything but
+    # `last_seen`, which an unchanged sighting refreshes without a row (prompts show it instead).
+    config = dataclasses.replace(
+        load_config(Path("configs/m2_home.yaml")), output_dir=tmp_path, seed=3
+    )
+    run_dir, final_tick = run_config(config)
+    assert all((run_dir / f"{stream}.jsonl.gz").exists() for stream in LOG_STREAMS)
+    graphs = {}
+    finals = {}
+    for row in read_stream(run_dir, "beliefs"):
+        if row["change"] == "initial":
+            graphs[row["agent"]] = dict(row["beliefs"])
+        elif row["change"] == "final":
+            finals[row["agent"]] = row["beliefs"]
+        else:
+            graphs[row["agent"]][row["obj"]] = row["belief"]
+    for graph in (*graphs.values(), *finals.values()):
+        for entry in graph.values():
+            del entry["last_seen"]
+    assert finals and graphs == finals
+    assert len(read_stream(run_dir, "poses")) == final_tick + 1

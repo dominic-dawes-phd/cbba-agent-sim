@@ -1,0 +1,7 @@
+{
+  // A live sweep writes run logs continuously; keep VS Code from watching (and reacting to) them.
+  "files.watcherExclude": {
+    "**/runs/**": true,
+    "**/.venv/**": true
+  }
+}

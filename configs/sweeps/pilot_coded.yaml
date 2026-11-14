@@ -1,0 +1,17 @@
+# Coded-executor pilot on the generated houses: C0 and G (coded) across every sweep axis.
+# python -m experiments.sweep configs/sweeps/pilot_coded.yaml (C0 needs the [solver] extra).
+# Its variance sets seeds per cell for the LLM runs (DOE.md section 5). Not a paper result: the
+# paper's G uses the LLM executor.
+experiment: pilot_coded
+# One entry per condition; {env} expands over envs. C0 runs at baseline only.
+episodes:
+  - configs/generated/{env}/episode_oracle.yaml
+  - configs/generated/{env}/episode_greedy.yaml
+envs: [house_48x32_s0, house_48x32_s1, house_48x32_s2]
+first_seed: 0
+seeds: 20
+# Planned levels from DOE.md section 2B; each is swept alone around the baseline.
+loss_levels: [0.1, 0.3, 0.5, 0.7]
+range_levels: [16, 12, 8, 6, 4]
+churn: {num_agents: 1, earliest_tick: 100, latest_tick: 300, rejoin_delay: 60}
+workers: 8

@@ -1,0 +1,53 @@
+# Seeded household mission generator settings: python -m experiments.generate_mission <this file>.
+# One house per seed; the same file gives byte-identical output in configs/generated/<name>_s<seed>/.
+name: house_48x32
+seeds: [0, 1, 2]
+
+# House: the rectangle is split recursively into rooms with 2-wide doors between neighbours, plus
+# an outside strip (with the outdoor bin) on the east side.
+width: 48
+height: 32
+rooms: 7
+min_room_side: 8
+door_width: 2
+outside_width: 3
+# Room types in order of room size; the two largest rooms are kitchens.
+room_types: [kitchen, kitchen, dining, living, bedroom, study, laundry, bathroom]
+
+# Work (22 tasks with these numbers).
+# Dirty dishes lie in clusters of adjacent surface tiles, each tile a stack. One cluster is one
+# clean_dishes task: all its dishes are loaded, then washed in one cycle.
+dirty_clusters: 3
+cluster_tiles: [1, 3]     # tiles per cluster
+stack_size: [1, 5]        # dishes per tile
+unpack_bowls: 2           # clean bowls waiting in each dishwasher (one unpack task each)
+groceries_per_entry: 3    # food items on each entry table (one pack task each)
+scraps_per_trashcan: 3    # trash in each kitchen can (capacity 5; one take-out task each)
+tidy_items: 12            # stray objects on floors, each to be put on a shelf in another room
+
+# Team: six heterogeneous agents. Each starts next to its own dock.
+agents:
+  - {id: arm_a, hands: 2, speed: 1, view_range: 8, view_angle: 360}
+  - {id: arm_b, hands: 2, speed: 1, view_range: 8, view_angle: 360}
+  - {id: arm_c, hands: 1, speed: 1, view_range: 8, view_angle: 360}
+  - {id: arm_d, hands: 1, speed: 1, view_range: 8, view_angle: 360}
+  - {id: carrier_e, hands: 1, speed: 2, view_range: 8, view_angle: 360, can_scan: true}
+  - {id: carrier_f, hands: 1, speed: 2, view_range: 8, view_angle: 360}
+
+# Episode configs copy latency, channel, churn, faults, exploration, battery, and scripted settings
+# from this file; task visibility and spawning come from here.
+episode_base: configs/m2_home.yaml
+# Agents know no task at tick 0; a task becomes known when an agent sees what it is about.
+task_visibility: discovered
+# Seeded uniform start cells (each agent's dock stays where it is, for parking and charging).
+spawn: {mode: uniform, min_separation: 4}
+# How episode_oracle.yaml plans: cpsat gives a proven bound (needs the [solver] extra).
+oracle_method: cpsat
+# The model file the LLM episode configs point at, so run.json records its hash
+# (docs/design/llm_setup.md). Change it to the cluster's path there.
+llm_model_path: C:/Users/domin/llm/Qwen3-8B-Q4_K_M.gguf
+# The tick budget is budget_multiplier x the slowest oracle replay over budget_probe_seeds spawns
+# (rounded up to 50), each measured with at most probe_ticks.
+budget_multiplier: 4.0
+budget_probe_seeds: 3
+probe_ticks: 6000

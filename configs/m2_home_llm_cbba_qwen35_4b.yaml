@@ -1,0 +1,97 @@
+# M2 household run, condition llm_cbba with the LLM executor (docs/design/llm_setup.md). Model bake-off: qwen3.5-4b (docs/design/llm_models.md).
+name: m2_home_llm_cbba_qwen35_4b
+env: m2_home
+condition: llm_cbba
+executor: llm
+seed: 0
+max_ticks: 900
+map: configs/maps/home_medium.txt
+mission: configs/missions/home_day.yaml
+output_dir: runs
+snapshot_every: 50
+
+# Every mission task is known to the team at tick 0 ("discovered": revealed by perception).
+task_visibility: posted
+# Start cells from the mission ("uniform": seeded uniform draw over valid floor).
+spawn: {mode: mission, min_separation: 0}
+# Coverage map for the explore skill: search_ttl null keeps cells searched forever.
+exploration:
+  search_ttl: null
+  share_every: 10
+
+# Provisional reference rates (decisions.md, open question 2).
+latency:
+  prefill_rate: 2000.0
+  decode_rate: 40.0
+  seconds_per_tick: 1.0
+
+# Perfect communication: no base loss, no range cutoff, no distance falloff, walls transparent.
+channel:
+  base_loss: 0.0
+  comm_range: null
+  d0: null
+  alpha: 4.0
+  wall_penalty: 1.0
+  latency_ticks: 0
+
+churn:
+  num_agents: 0
+  rejoin_delay: 30
+  earliest_tick: 10
+  latest_tick: 60
+
+# One drop chance per pick, place, and move while holding. Plates and cups shatter.
+faults:
+  drop_prob: 0.025
+
+# Battery model, designed in docs/design/simulator.md and not implemented: must stay disabled.
+battery:
+  enabled: false
+  capacity: 1000.0
+  drain_idle: 0.1
+  drain_move: 1.0
+  drain_carry: 1.5
+  drain_manipulate: 1.0
+  charge_rate: 5.0
+  low_threshold: 0.2
+
+scripted:
+  wait_ticks: 5
+
+# How C0 plans, used only with condition: oracle (cpsat needs the [solver] extra).
+oracle:
+  method: heuristic
+  restarts: 4
+  max_passes: 8
+  deterministic_time: 60.0
+  workers: 8
+
+# CBBA and the replicated ledger, for the auction conditions (numeric_cbba, llm_cbba).
+cbba:
+  bundle_size: 3
+  discount: 0.97
+  gossip_every: 10
+  lease_ticks: 60
+  give_up_ticks: 120
+
+# C1's dialogue rounds (llm_only): M = turns_per_member x members, K = replans.
+dialogue:
+  turns_per_member: 2
+  replans: 2
+  retry_ticks: 30
+  message_chars: 400
+
+# The shared model server, used only with executor: llm (docs/design/llm_setup.md).
+llm:
+  endpoint: http://127.0.0.1:8080
+  model: qwen3.5-4b
+  model_path: C:/Users/domin/llm/Qwen3.5-4B-Q4_K_M.gguf
+  temperature: 0.0
+  seed: 0
+  max_tokens: 256
+  timeout_seconds: 120.0
+  retries: 2
+  cache_dir: runs/llm_cache
+  replay_only: false
+  history_keep: 8
+  pin_slots: true

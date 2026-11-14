@@ -1,0 +1,20 @@
+# LLM pilot on the generated houses: G (LLM executor), C1, C2, and C3 at the baseline point.
+# python -m experiments.sweep configs/sweeps/pilot_llm.yaml, with llama-server running
+# (docs/design/llm_setup.md). It measures cost, wall time, variance, and failure modes per
+# condition (DOE.md sections 5 and 6). Not a paper result.
+experiment: pilot_llm
+# One entry per condition; {env} expands over envs.
+episodes:
+  - configs/generated/{env}/episode_greedy_llm.yaml
+  - configs/generated/{env}/episode_numeric_cbba.yaml
+  - configs/generated/{env}/episode_llm_cbba.yaml
+  - configs/generated/{env}/episode_llm_only.yaml
+envs: [house_48x32_s0, house_48x32_s1, house_48x32_s2]
+first_seed: 0
+seeds: 2
+# Baseline only: no loss, range, or churn cells yet.
+loss_levels: []
+range_levels: []
+churn: null
+# One episode at a time: its 6 agents use the server's 6 slots.
+workers: 1

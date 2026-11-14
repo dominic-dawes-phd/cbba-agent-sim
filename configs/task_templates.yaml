@@ -1,0 +1,115 @@
+# Household task templates. A task is an orchestrated series of primitives, like a generalist
+# policy told "unpack the dishwasher". A mission instantiates one by `kind` and supplies params.
+#
+# Blocks: `before` and `after` run once, `each` is unrolled once per element of the list param
+# named by `over` (as {item}). `goals` are ground-truth facts that must all hold for the task to be
+# done. Placeholders are {param}. Quote placeholders and "on" in YAML.
+# `lock` reserves the workspace (the furniture cells within reach plus the floor around them) so
+# teammates cannot interleave or walk through; `unlock` releases it. `start` hands the dishwasher's
+# reservation to the running cycle, which releases it when the wash ends.
+# A step target that is a furniture *type* ("cabinet") means "any furniture of that type": the
+# executor picks the instance (one it believes has room, else one it has not looked inside).
+
+# Wash goals are per dish (`washed`: a cycle that held it has ended), not tied to one machine, so an
+# agent may use another dishwasher when this one is busy. {appliance} is the nearest one, a default.
+clean_plate:
+  description: "Clean {item}: load it into {appliance} and run a wash cycle."
+  # Fetch first, then reserve: holding the dishwasher's workspace while searching for the plate
+  # would block every teammate who needs the dishwasher.
+  before:
+    - [pick, "{item}"]
+    - [lock, "{appliance}"]
+    - [open, "{appliance}"]
+    - [place, "{item}", "{appliance}"]
+    - [close, "{appliance}"]
+    - [start, "{appliance}"]
+  goals:
+    - ["{item}", washed, "yes"]
+
+# A batch of dirty dishes washed in one cycle. The dishwasher is reserved only for the final
+# close-and-start, so the agent does not hold it while fetching dishes from other rooms. A teammate
+# starting the machine mid-batch splits the task (`sim.loop.handle_cycle_starts`): the dishes inside
+# finish with that cycle, and the rest become a new task.
+clean_dishes:
+  description: "Wash {items}: load them into {appliance} and run one wash cycle."
+  each:
+    over: items
+    steps:
+      - [pick, "{item}"]
+      - [open, "{appliance}"]
+      - [place, "{item}", "{appliance}"]
+    goals:
+      - ["{item}", washed, "yes"]
+  after:
+    - [lock, "{appliance}"]
+    - [close, "{appliance}"]
+    - [start, "{appliance}"]
+
+# Put one stray object away. Pure travel and handling, no shared appliance: the task type where
+# who-does-what matters most.
+tidy:
+  description: "Put {item} away {relation} {dest}."
+  before:
+    - [pick, "{item}"]
+    - [place, "{item}", "{dest}"]
+  goals:
+    - ["{item}", "{relation}", "{dest}"]
+
+unpack_dishwasher:
+  description: >-
+    Unpack {items} from {appliance} into {dest}. Hold the dishwasher while you work. If every
+    cupboard you know of is full, put the dish on the drying rack instead.
+  before:
+    - [lock, "{appliance}"]
+    - [open, "{appliance}"]
+    - [open, "{dest}"]
+  each:
+    over: items
+    steps:
+      - [pick, "{item}"]
+      - [place, "{item}", "{dest}"]
+    goals:
+      - ["{item}", in_kind, "cabinet|drying_rack"]
+  after:
+    - [close, "{dest}"]
+    - [close, "{appliance}"]
+    - [unlock, "{appliance}"]
+
+pack_groceries:
+  description: "Put the groceries ({items}) from {source} into {dest}. Hold {source} while you work."
+  before:
+    - [lock, "{source}"]
+    - [open, "{dest}"]
+  each:
+    over: items
+    steps:
+      - [pick, "{item}"]
+      - [place, "{item}", "{dest}"]
+    goals:
+      - ["{item}", in, "{dest}"]
+  after:
+    - [close, "{dest}"]
+    - [unlock, "{source}"]
+
+take_out_trash:
+  description: "Take out the trash if {can} is more than half full: tie {bag} and put it in {bin}."
+  before:
+    - [lock, "{can}"]
+    - [open, "{can}"]
+    - [tie_bag, "{can}"]
+    - [pick, "{bag}"]
+    - [close, "{can}"]
+    - [unlock, "{can}"]
+    - [place, "{bag}", "{bin}"]
+  goals:
+    - ["{bag}", is, tied]
+    - ["{bag}", in, "{bin}"]
+
+# Discovered when an agent sees a clean dish on the drying rack (sim/triggers.py).
+store_dish:
+  description: "Put {item} from {rack} away in a cupboard with room."
+  before:
+    - [pick, "{item}"]
+    - [place, "{item}", cabinet]
+  goals:
+    - ["{item}", in_kind, cabinet]

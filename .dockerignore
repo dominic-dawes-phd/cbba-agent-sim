@@ -1,0 +1,2 @@
+# The image copies nothing from the repo (the code is bind-mounted on the cluster).
+*

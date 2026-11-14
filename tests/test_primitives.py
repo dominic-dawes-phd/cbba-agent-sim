@@ -2,20 +2,33 @@ import random
 
 from sim.agent import ToolCall
 from sim.beliefs import update_beliefs
+from sim.motion import advance_moves
 from sim.pathing import PathPlanner
 from sim.primitives import advance_skill, check_against_beliefs, start_skill
 from tests.helpers import add_furniture, add_item, make_agent, make_world
 
 
-def run_call(call, agent, world, agents=None):
-    """Starts a call and advances it until it finishes. The channel is unused by these calls."""
+def run_call(call, agent, world, agents=None, drop_prob=0.0, seed=0):
+    """Starts a call and advances it until it finishes. The channel is unused by these calls.
+
+    Returns:
+        The result, with `.ticks` set to how many ticks the skill took.
+    """
     planner = PathPlanner(world)
-    agent.skill = start_skill(call, agent, planner)
-    rng = random.Random(0)
+    rng = random.Random(seed)
+    agent.skill = start_skill(call, agent, planner, rng, drop_prob)
+    team = agents or {agent.agent_id: agent}
+    ticks = 0
     while True:
-        result = advance_skill(agent, agents or {agent.agent_id: agent}, world, planner, None, rng)
+        ticks += 1
+        world.tick += 1
+        if call.name == "move_to":
+            result = advance_moves(team, world, planner, rng).get(agent.agent_id)
+        else:
+            result = advance_skill(agent, team, world, planner, None, rng, drop_prob)
         if result is not None:
             agent.skill = None
+            run_call.ticks = ticks
             return result
 
 
@@ -57,30 +70,27 @@ def test_two_hand_object_needs_two_free_hands():
     assert world.objects["pot_1"].held_by == "arm_a"
 
 
-def test_failed_place_follows_drop_rule():
+def test_fumbled_place_keeps_the_object_in_hand():
     world = make_world(["....."])
-    add_furniture(world, "table_1", (1, 0), surface=True)
-    add_furniture(world, "shelf_1", (4, 0), surface=True)
-    add_item(world, "plate_1", (0, 0))
-    clumsy = make_agent("arm_a", (0, 0), success={"place": 0.0})
-    assert run_call(ToolCall("pick", ("plate_1",)), clumsy, world).ok
-    clumsy.cell = (3, 0)  # next to the shelf and not next to the table
-    result = run_call(ToolCall("place", ("plate_1", "shelf_1")), clumsy, world)
-    assert result.outcome == "skill_failure"
-    assert result.text == "place failed: plate_1 dropped, now on shelf_1"
-    assert clumsy.held == []
+    add_furniture(world, "shelf_1", (2, 0), surface=True)
+    add_item(world, "mug_1", (0, 0))
+    clumsy = make_agent("arm_a", (1, 0), success={"place": 0.0})
+    assert run_call(ToolCall("pick", ("mug_1",)), clumsy, world).ok
+    result = run_call(ToolCall("place", ("mug_1", "shelf_1")), clumsy, world)
+    assert (result.outcome, result.text) == (
+        "skill_failure",
+        "place failed: fumbled, still holding mug_1",
+    )
+    assert clumsy.held == ["mug_1"]
 
 
-def test_drop_rule_prefers_adjacent_surface_else_floor():
+def test_drop_rule_lands_on_the_agents_own_tile():
     world = make_world([".....", "....."])
     add_furniture(world, "table_1", (0, 0), surface=True)
     add_item(world, "mug_1", (4, 1))
     world.hold("mug_1", "arm_a", (1, 1))
-    assert world.drop("mug_1", (1, 1)) == "on table_1"
-    assert world.objects["mug_1"].parent_id == "table_1"
-    world.hold("mug_1", "arm_a", (4, 1))
-    assert world.drop("mug_1", (4, 1)) == "on the floor"
-    assert world.objects["mug_1"].cell == (4, 1)
+    world.drop("mug_1", (1, 1))  # next to the table, still lands on the floor
+    assert world.objects["mug_1"].cell == (1, 1)
     assert world.objects["mug_1"].parent_id is None
 
 
@@ -100,9 +110,7 @@ def test_move_to_takes_ceil_steps_over_speed_ticks():
     add_item(world, "mug_1", (7, 0))
     agent = make_agent("drone_c", (0, 0), speed=2)
     update_beliefs(agent.beliefs, world, agent.viewpoint())
-    planner = PathPlanner(world)
-    agent.skill = start_skill(ToolCall("move_to", ("mug_1",)), agent, planner)
-    assert agent.skill.ticks_left == 3  # 6 steps to (6, 0) at 2 cells per tick
     result = run_call(ToolCall("move_to", ("mug_1",)), agent, world)
     assert result.ok
+    assert run_call.ticks == 3  # 6 steps to (6, 0) at 2 cells per tick
     assert agent.cell == (6, 0)

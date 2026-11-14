@@ -8,6 +8,9 @@ from dataclasses import dataclass
 
 from sim.world import Cell, World, chebyshev_distance
 
+# A view angle at or above this sees in every direction.
+FULL_CIRCLE = 360.0
+
 
 @dataclass(frozen=True)
 class Viewpoint:
@@ -57,11 +60,44 @@ def cell_visible(walls: set[Cell], viewpoint: Viewpoint, target: Cell) -> bool:
     return walls_between(walls, viewpoint.cell, target) == 0
 
 
+class VisibleCells:
+    """Map cells (floor and furniture, not walls) each viewpoint can see, cached per viewpoint.
+
+    Walls never move, so a viewpoint always sees the same cells. With a full 360-degree view the
+    heading does not matter and is left out of the cache key.
+    """
+
+    def __init__(self, world: World) -> None:
+        self._walls = world.walls
+        self._map_cells = frozenset(world.rooms)
+        self._cache: dict[Viewpoint, frozenset[Cell]] = {}
+
+    def of(self, viewpoint: Viewpoint) -> frozenset[Cell]:
+        """Cells visible from `viewpoint`."""
+        key = viewpoint
+        if viewpoint.view_angle >= FULL_CIRCLE:
+            key = Viewpoint(viewpoint.cell, 0.0, viewpoint.view_range, viewpoint.view_angle)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        reach = math.ceil(viewpoint.view_range)
+        x0, y0 = viewpoint.cell
+        cells = frozenset(
+            (x0 + dx, y0 + dy)
+            for dx in range(-reach, reach + 1)
+            for dy in range(-reach, reach + 1)
+            if (x0 + dx, y0 + dy) in self._map_cells
+            and cell_visible(self._walls, viewpoint, (x0 + dx, y0 + dy))
+        )
+        self._cache[key] = cells
+        return cells
+
+
 def visible_object_ids(world: World, viewpoint: Viewpoint) -> set[str]:
     """Objects the viewer can see. Contents of closed containers are hidden."""
     visible = set()
     for obj in world.objects.values():
-        if not cell_visible(world.walls, viewpoint, obj.cell):
+        if not any(cell_visible(world.walls, viewpoint, cell) for cell in obj.cells()):
             continue
         if obj.parent_relation == "in" and not world.objects[obj.parent_id].is_open:
             continue
@@ -70,11 +106,30 @@ def visible_object_ids(world: World, viewpoint: Viewpoint) -> set[str]:
 
 
 def observed_attrs(world: World, obj_id: str) -> dict[str, str]:
-    """Perceivable attributes of an object, including the open/closed state of containers."""
+    """Perceivable attributes: open/closed, fill, appliance cycle and countdown, who reserved it.
+
+    Per-slot fill (`slots`, e.g. "3/3,1/3") is visible only when the inside is: an open container
+    or a surface. A trashcan's whole-object `fill` is a gauge readable with the lid closed.
+    """
     obj = world.objects[obj_id]
     attrs = dict(obj.visual_attrs)
     if obj.is_container:
         attrs["state"] = "open" if obj.is_open else "closed"
+    if obj.slot_capacity is not None and obj.is_open:
+        attrs["slots"] = ",".join(
+            f"{world.slot_count(obj_id, slot)}/{obj.slot_capacity}" for slot in obj.cells()
+        )
+    if obj.capacity is not None:
+        attrs["fill"] = f"{world.contents_count(obj_id)}/{obj.capacity}"
+    if obj.washing_time > 0:
+        attrs["cycle"] = obj.cycle
+        if obj.cycle == "running":
+            attrs["cycle_left"] = str(world.cycle_ticks_left[obj_id])
+    holders = sorted(
+        {world.reservations[cell][0] for cell in obj.cells() if cell in world.reservations}
+    )
+    if holders:
+        attrs["reserved_by"] = ",".join(holders)
     return attrs
 
 

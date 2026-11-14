@@ -1,0 +1,14 @@
+# Headroom pilot: does the choice of allocation change the outcome on these missions at all?
+# Runs static assignments of each mission's tasks to agents (each agent keeps mission order) with
+# the scripted executor, plus the greedy baseline. With perfect communication and no drops every
+# episode is deterministic, so one run per assignment suffices.
+episodes:
+  - configs/m2_home.yaml
+drop_prob: 0.0
+# Enumerate every assignment up to this many; above it, run a seeded random sample instead.
+max_enumerated: 1000
+samples: 60
+seed: 0
+workers: 8
+# Headroom is "worth testing" if the median assignment is at least this much slower than the best.
+min_headroom: 0.10

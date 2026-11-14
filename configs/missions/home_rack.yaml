@@ -1,0 +1,35 @@
+# Drying-rack fallback: cabinet_1 starts full, so the unpacking agent racks the bowls. Each racked
+# bowl is a discovered `store_dish` task; another agent finds room in cabinet_2 (which nobody has
+# looked inside at the start). Total cupboard slots equal the number of dishes.
+
+objects:
+  - {id: counter_1, type: counter, cells: [[1, 1], [2, 1]], furniture: true, surface: true,
+     slot_capacity: 3}
+  - {id: dishwasher_1, type: dishwasher, cell: [3, 1], furniture: true, container: true,
+     open: false, washing_time: 60}
+  - {id: cabinet_1, type: cabinet, cells: [[4, 1], [5, 1]], furniture: true, container: true,
+     open: false, slot_capacity: 1}
+  - {id: drying_rack_1, type: drying_rack, cell: [4, 6], furniture: true, surface: true}
+  - {id: cabinet_2, type: cabinet, cells: [[7, 6], [8, 6]], furniture: true, container: true,
+     open: false, slot_capacity: 1}
+  # Docks: idle agents park next to their own, out of the doorways.
+  - {id: dock_arm_a, type: dock, cell: [1, 3], furniture: true}
+  - {id: dock_arm_b, type: dock, cell: [17, 1], furniture: true}
+  - {id: dock_carrier_c, type: dock, cell: [17, 6], furniture: true}
+  - {id: cup_1, type: cup, parent: cabinet_1, slot: 0}
+  - {id: cup_2, type: cup, parent: cabinet_1, slot: 1}
+  - {id: bowl_1, type: bowl, parent: dishwasher_1, visual: {dirty: "no"}}
+  - {id: bowl_2, type: bowl, parent: dishwasher_1, visual: {dirty: "no"}}
+
+agents:
+  - {id: arm_a, cell: [3, 3], heading: 270, hands: 2, speed: 1, view_range: 8, view_angle: 360}
+  - {id: arm_b, cell: [13, 4], heading: 180, hands: 1, speed: 1, view_range: 8, view_angle: 360}
+  - {id: carrier_c, cell: [11, 4], heading: 180, hands: 1, speed: 2, view_range: 8,
+     view_angle: 360}
+
+tasks:
+  - {id: t_unpack, kind: unpack_dishwasher, appliance: dishwasher_1, items: [bowl_1, bowl_2],
+     dest: cabinet_1}
+
+scripted_assignment:
+  arm_a: [t_unpack]

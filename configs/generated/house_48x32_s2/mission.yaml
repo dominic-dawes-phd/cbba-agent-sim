@@ -1,0 +1,788 @@
+objects:
+- id: bin_1
+  type: bin
+  container: true
+  furniture: true
+  cells:
+  - - 44
+    - 9
+  - - 44
+    - 9
+- id: cabinet_1
+  type: cabinet
+  container: true
+  open: false
+  furniture: true
+  cells:
+  - - 1
+    - 27
+  - - 1
+    - 29
+  slot_capacity: 5
+- id: cabinet_2
+  type: cabinet
+  container: true
+  open: false
+  furniture: true
+  cells:
+  - - 33
+    - 30
+  - - 35
+    - 30
+  slot_capacity: 5
+- id: counter_1
+  type: counter
+  surface: true
+  slot_capacity: 3
+  furniture: true
+  cells:
+  - - 14
+    - 13
+  - - 14
+    - 15
+- id: counter_2
+  type: counter
+  surface: true
+  slot_capacity: 3
+  furniture: true
+  cells:
+  - - 33
+    - 11
+  - - 33
+    - 13
+- id: dishwasher_1
+  type: dishwasher
+  container: true
+  open: false
+  washing_time: 60
+  furniture: true
+  cells:
+  - - 14
+    - 25
+  - - 14
+    - 25
+- id: dishwasher_2
+  type: dishwasher
+  container: true
+  open: false
+  washing_time: 60
+  furniture: true
+  cells:
+  - - 39
+    - 30
+  - - 39
+    - 30
+- id: dock_arm_a
+  type: dock
+  furniture: true
+  cells:
+  - - 11
+    - 30
+  - - 11
+    - 30
+- id: dock_arm_b
+  type: dock
+  furniture: true
+  cells:
+  - - 33
+    - 21
+  - - 33
+    - 21
+- id: dock_arm_c
+  type: dock
+  furniture: true
+  cells:
+  - - 27
+    - 11
+  - - 27
+    - 11
+- id: dock_arm_d
+  type: dock
+  furniture: true
+  cells:
+  - - 3
+    - 1
+  - - 3
+    - 1
+- id: dock_carrier_e
+  type: dock
+  furniture: true
+  cells:
+  - - 24
+    - 13
+  - - 24
+    - 13
+- id: dock_carrier_f
+  type: dock
+  furniture: true
+  cells:
+  - - 29
+    - 30
+  - - 29
+    - 30
+- id: drying_rack_1
+  type: drying_rack
+  surface: true
+  furniture: true
+  cells:
+  - - 1
+    - 16
+  - - 1
+    - 16
+- id: drying_rack_2
+  type: drying_rack
+  surface: true
+  furniture: true
+  cells:
+  - - 42
+    - 28
+  - - 42
+    - 28
+- id: entry_table_1
+  type: table
+  surface: true
+  furniture: true
+  cells:
+  - - 17
+    - 11
+  - - 18
+    - 11
+  visual:
+    entry: 'yes'
+- id: pantry_1
+  type: pantry
+  container: true
+  open: false
+  slot_capacity: 2
+  furniture: true
+  cells:
+  - - 14
+    - 29
+  - - 14
+    - 30
+- id: pantry_2
+  type: pantry
+  container: true
+  open: false
+  slot_capacity: 2
+  furniture: true
+  cells:
+  - - 42
+    - 25
+  - - 42
+    - 26
+- id: shelf_1
+  type: shelf
+  surface: true
+  furniture: true
+  cells:
+  - - 17
+    - 1
+  - - 18
+    - 1
+- id: shelf_2
+  type: shelf
+  surface: true
+  furniture: true
+  cells:
+  - - 6
+    - 1
+  - - 8
+    - 1
+- id: shelf_3
+  type: shelf
+  surface: true
+  furniture: true
+  cells:
+  - - 16
+    - 14
+  - - 16
+    - 15
+- id: shelf_4
+  type: shelf
+  surface: true
+  furniture: true
+  cells:
+  - - 29
+    - 23
+  - - 30
+    - 23
+- id: shelf_5
+  type: shelf
+  surface: true
+  furniture: true
+  cells:
+  - - 42
+    - 6
+  - - 42
+    - 7
+- id: table_1
+  type: table
+  surface: true
+  furniture: true
+  cells:
+  - - 16
+    - 4
+  - - 16
+    - 6
+- id: table_2
+  type: table
+  surface: true
+  furniture: true
+  cells:
+  - - 1
+    - 7
+  - - 1
+    - 8
+- id: table_3
+  type: table
+  surface: true
+  furniture: true
+  cells:
+  - - 19
+    - 23
+  - - 20
+    - 23
+- id: trashcan_1
+  type: trashcan
+  container: true
+  open: false
+  capacity: 5
+  furniture: true
+  cells:
+  - - 14
+    - 23
+  - - 14
+    - 23
+- id: trashcan_2
+  type: trashcan
+  container: true
+  open: false
+  capacity: 5
+  furniture: true
+  cells:
+  - - 33
+    - 28
+  - - 33
+    - 28
+- id: bowl_dishwasher_1_1
+  type: bowl
+  parent: dishwasher_1
+  visual:
+    dirty: 'no'
+- id: bowl_dishwasher_1_2
+  type: bowl
+  parent: dishwasher_1
+  visual:
+    dirty: 'no'
+- id: bowl_dishwasher_2_1
+  type: bowl
+  parent: dishwasher_2
+  visual:
+    dirty: 'no'
+- id: bowl_dishwasher_2_2
+  type: bowl
+  parent: dishwasher_2
+  visual:
+    dirty: 'no'
+- id: cup_1
+  type: cup
+  parent: shelf_5
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_2
+  type: plate
+  parent: shelf_5
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_3
+  type: plate
+  parent: shelf_5
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: cup_4
+  type: cup
+  parent: shelf_5
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: cup_5
+  type: cup
+  parent: shelf_5
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: cup_6
+  type: cup
+  parent: shelf_5
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_7
+  type: plate
+  parent: shelf_5
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_8
+  type: plate
+  parent: shelf_5
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_9
+  type: plate
+  parent: shelf_5
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_10
+  type: plate
+  parent: shelf_5
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: cup_11
+  type: cup
+  parent: shelf_1
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_12
+  type: plate
+  parent: shelf_1
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_13
+  type: plate
+  parent: shelf_1
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: cup_14
+  type: cup
+  parent: shelf_1
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: cup_15
+  type: cup
+  parent: shelf_1
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: cup_16
+  type: cup
+  parent: shelf_1
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_17
+  type: plate
+  parent: shelf_1
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_18
+  type: plate
+  parent: shelf_1
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_19
+  type: plate
+  parent: shelf_1
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: cup_20
+  type: cup
+  parent: shelf_4
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_21
+  type: plate
+  parent: shelf_4
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_22
+  type: plate
+  parent: shelf_4
+  slot: 1
+  visual:
+    dirty: 'yes'
+- id: plate_23
+  type: plate
+  parent: shelf_4
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: plate_24
+  type: plate
+  parent: shelf_4
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: cup_25
+  type: cup
+  parent: shelf_4
+  slot: 0
+  visual:
+    dirty: 'yes'
+- id: bread_entry_table_1_1
+  type: bread
+  parent: entry_table_1
+  slot: 0
+- id: eggs_entry_table_1_2
+  type: eggs
+  parent: entry_table_1
+  slot: 1
+- id: eggs_entry_table_1_3
+  type: eggs
+  parent: entry_table_1
+  slot: 0
+- id: scrap_trashcan_1_1
+  type: food_scrap
+  parent: trashcan_1
+  visual:
+    trash: 'yes'
+- id: scrap_trashcan_1_2
+  type: food_scrap
+  parent: trashcan_1
+  visual:
+    trash: 'yes'
+- id: scrap_trashcan_1_3
+  type: food_scrap
+  parent: trashcan_1
+  visual:
+    trash: 'yes'
+- id: trashcan_1_bag
+  type: trash_bag
+  parent: trashcan_1
+  visual:
+    tied: 'no'
+- id: scrap_trashcan_2_1
+  type: food_scrap
+  parent: trashcan_2
+  visual:
+    trash: 'yes'
+- id: scrap_trashcan_2_2
+  type: food_scrap
+  parent: trashcan_2
+  visual:
+    trash: 'yes'
+- id: scrap_trashcan_2_3
+  type: food_scrap
+  parent: trashcan_2
+  visual:
+    trash: 'yes'
+- id: trashcan_2_bag
+  type: trash_bag
+  parent: trashcan_2
+  visual:
+    tied: 'no'
+- id: remote_1
+  type: remote
+  cell:
+  - 19
+  - 8
+- id: remote_2
+  type: remote
+  cell:
+  - 36
+  - 8
+- id: toy_3
+  type: toy
+  cell:
+  - 8
+  - 9
+- id: remote_4
+  type: remote
+  cell:
+  - 3
+  - 21
+- id: toy_5
+  type: toy
+  cell:
+  - 27
+  - 18
+- id: remote_6
+  type: remote
+  cell:
+  - 38
+  - 17
+- id: towel_7
+  type: towel
+  cell:
+  - 25
+  - 21
+- id: book_8
+  type: book
+  cell:
+  - 12
+  - 28
+- id: book_9
+  type: book
+  cell:
+  - 24
+  - 30
+- id: remote_10
+  type: remote
+  cell:
+  - 14
+  - 17
+- id: toy_11
+  type: toy
+  cell:
+  - 6
+  - 11
+- id: book_12
+  type: book
+  cell:
+  - 12
+  - 5
+agents:
+- id: arm_a
+  hands: 2
+  speed: 1
+  view_range: 8
+  view_angle: 360
+  cell:
+  - 11
+  - 29
+  heading: 0
+- id: arm_b
+  hands: 2
+  speed: 1
+  view_range: 8
+  view_angle: 360
+  cell:
+  - 33
+  - 22
+  heading: 0
+- id: arm_c
+  hands: 1
+  speed: 1
+  view_range: 8
+  view_angle: 360
+  cell:
+  - 27
+  - 10
+  heading: 0
+- id: arm_d
+  hands: 1
+  speed: 1
+  view_range: 8
+  view_angle: 360
+  cell:
+  - 3
+  - 2
+  heading: 0
+- id: carrier_e
+  hands: 1
+  speed: 2
+  view_range: 8
+  view_angle: 360
+  can_scan: true
+  cell:
+  - 24
+  - 14
+  heading: 0
+- id: carrier_f
+  hands: 1
+  speed: 2
+  view_range: 8
+  view_angle: 360
+  cell:
+  - 29
+  - 29
+  heading: 0
+tasks:
+- id: t_unpack_dishwasher_1
+  kind: unpack_dishwasher
+  appliance: dishwasher_1
+  items:
+  - bowl_dishwasher_1_1
+  - bowl_dishwasher_1_2
+  dest: cabinet_1
+  reveal_on:
+  - dishwasher_1
+- id: t_unpack_dishwasher_2
+  kind: unpack_dishwasher
+  appliance: dishwasher_2
+  items:
+  - bowl_dishwasher_2_1
+  - bowl_dishwasher_2_2
+  dest: cabinet_2
+  reveal_on:
+  - dishwasher_2
+- id: t_wash_dishwasher_2_1
+  kind: clean_dishes
+  items:
+  - cup_1
+  - plate_2
+  - plate_3
+  - cup_4
+  - cup_5
+  - cup_6
+  - plate_7
+  - plate_8
+  - plate_9
+  - plate_10
+  appliance: dishwasher_2
+  after:
+  - t_unpack_dishwasher_2
+- id: t_wash_dishwasher_1_1
+  kind: clean_dishes
+  items:
+  - cup_11
+  - plate_12
+  - plate_13
+  - cup_14
+  - cup_15
+  - cup_16
+  - plate_17
+  - plate_18
+  - plate_19
+  appliance: dishwasher_1
+  after:
+  - t_unpack_dishwasher_1
+- id: t_wash_dishwasher_1_2
+  kind: clean_dishes
+  items:
+  - cup_20
+  - plate_21
+  - plate_22
+  - plate_23
+  - plate_24
+  - cup_25
+  appliance: dishwasher_1
+  after:
+  - t_unpack_dishwasher_1
+- id: t_pack_bread_entry_table_1_1
+  kind: pack_groceries
+  source: entry_table_1
+  items:
+  - bread_entry_table_1_1
+  dest: pantry_1
+- id: t_pack_eggs_entry_table_1_2
+  kind: pack_groceries
+  source: entry_table_1
+  items:
+  - eggs_entry_table_1_2
+  dest: pantry_1
+- id: t_pack_eggs_entry_table_1_3
+  kind: pack_groceries
+  source: entry_table_1
+  items:
+  - eggs_entry_table_1_3
+  dest: pantry_1
+- id: t_trash_trashcan_1
+  kind: take_out_trash
+  can: trashcan_1
+  bag: trashcan_1_bag
+  bin: bin_1
+  reveal_on:
+  - trashcan_1
+- id: t_trash_trashcan_2
+  kind: take_out_trash
+  can: trashcan_2
+  bag: trashcan_2_bag
+  bin: bin_1
+  reveal_on:
+  - trashcan_2
+- id: t_tidy_remote_1
+  kind: tidy
+  item: remote_1
+  dest: shelf_2
+  relation: 'on'
+- id: t_tidy_remote_2
+  kind: tidy
+  item: remote_2
+  dest: shelf_1
+  relation: 'on'
+- id: t_tidy_toy_3
+  kind: tidy
+  item: toy_3
+  dest: shelf_5
+  relation: 'on'
+- id: t_tidy_remote_4
+  kind: tidy
+  item: remote_4
+  dest: shelf_4
+  relation: 'on'
+- id: t_tidy_toy_5
+  kind: tidy
+  item: toy_5
+  dest: shelf_1
+  relation: 'on'
+- id: t_tidy_remote_6
+  kind: tidy
+  item: remote_6
+  dest: shelf_2
+  relation: 'on'
+- id: t_tidy_towel_7
+  kind: tidy
+  item: towel_7
+  dest: shelf_5
+  relation: 'on'
+- id: t_tidy_book_8
+  kind: tidy
+  item: book_8
+  dest: shelf_3
+  relation: 'on'
+- id: t_tidy_book_9
+  kind: tidy
+  item: book_9
+  dest: shelf_3
+  relation: 'on'
+- id: t_tidy_remote_10
+  kind: tidy
+  item: remote_10
+  dest: shelf_1
+  relation: 'on'
+- id: t_tidy_toy_11
+  kind: tidy
+  item: toy_11
+  dest: shelf_4
+  relation: 'on'
+- id: t_tidy_book_12
+  kind: tidy
+  item: book_12
+  dest: shelf_4
+  relation: 'on'
+scripted_assignment:
+  arm_a:
+  - t_unpack_dishwasher_1
+  - t_pack_eggs_entry_table_1_2
+  - t_tidy_toy_3
+  - t_tidy_book_9
+  arm_b:
+  - t_unpack_dishwasher_2
+  - t_pack_eggs_entry_table_1_3
+  - t_tidy_remote_4
+  - t_tidy_remote_10
+  arm_c:
+  - t_wash_dishwasher_2_1
+  - t_trash_trashcan_1
+  - t_tidy_toy_5
+  - t_tidy_toy_11
+  arm_d:
+  - t_wash_dishwasher_1_1
+  - t_trash_trashcan_2
+  - t_tidy_remote_6
+  - t_tidy_book_12
+  carrier_e:
+  - t_wash_dishwasher_1_2
+  - t_tidy_remote_1
+  - t_tidy_towel_7
+  carrier_f:
+  - t_pack_bread_entry_table_1_1
+  - t_tidy_remote_2
+  - t_tidy_book_8

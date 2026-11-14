@@ -1,0 +1,13 @@
+k: kitchen
+d: dining
+p: pantry
+o: outside
+---
+######################
+#kkkkkkkk#dddddddd#oo#
+#kkkkkkkk#dddddddd#oo#
+#kkkkkkkkddddddddddoo#
+#kkkkkkkkddddddddddoo#
+#kkkkkkkk#dddddddd#oo#
+#pppkkkkk#dddddddd#oo#
+######################

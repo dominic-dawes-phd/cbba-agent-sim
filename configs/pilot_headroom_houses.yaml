@@ -1,0 +1,12 @@
+# Headroom pilot on the generated 48x32 houses (configs/generator/house_48x32.yaml, seeds 0-2).
+# Same procedure as pilot_headroom.yaml; with 6 agents and 20+ tasks the assignments are sampled.
+episodes:
+  - configs/generated/house_48x32_s0/episode_scripted.yaml
+  - configs/generated/house_48x32_s1/episode_scripted.yaml
+  - configs/generated/house_48x32_s2/episode_scripted.yaml
+drop_prob: 0.0
+max_enumerated: 1000
+samples: 60
+seed: 0
+workers: 8
+min_headroom: 0.10

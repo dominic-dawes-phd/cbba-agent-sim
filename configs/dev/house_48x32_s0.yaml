@@ -1,0 +1,12 @@
+# Dev figures for one generated house (needs the [solver] extra for the oracle):
+# python -m experiments.dev_refresh configs/dev/house_48x32_s0.yaml.
+env: house_48x32_s0
+episodes:
+  - configs/generated/house_48x32_s0/episode_oracle.yaml
+  - configs/generated/house_48x32_s0/episode_greedy.yaml
+  - configs/generated/house_48x32_s0/episode_scripted.yaml
+first_seed: 0
+seeds: 2
+loss_levels: [0.3, 0.6]
+range_levels: [16, 8]
+churn: {num_agents: 1, earliest_tick: 100, latest_tick: 100, rejoin_delay: 60}

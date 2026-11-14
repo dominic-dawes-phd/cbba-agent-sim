@@ -1,0 +1,22 @@
+# The house LLM pilot on the cluster (docs/design/cluster.md): G (LLM executor), C1, C2, and C3
+# at the baseline point, as in pilot_llm.yaml, with the model file where the container sees it.
+# cluster/submit.sh configs/sweeps/cluster_pilot_llm.yaml 8
+# Also a cross-machine check against the laptop's run of pilot_llm.yaml (stamp 20261112-223120).
+# Not a paper result.
+experiment: pilot_llm_cluster
+episodes:
+  - configs/generated/{env}/episode_greedy_llm.yaml
+  - configs/generated/{env}/episode_numeric_cbba.yaml
+  - configs/generated/{env}/episode_llm_cbba.yaml
+  - configs/generated/{env}/episode_llm_only.yaml
+envs: [house_48x32_s0, house_48x32_s1, house_48x32_s2]
+first_seed: 0
+seeds: 2
+loss_levels: []
+range_levels: []
+churn: null
+# One episode at a time per shard: its 6 agents use that shard's server's 6 slots.
+workers: 1
+# Replaces every episode's llm block fields. Same file (same sha256) as on the laptop.
+llm:
+  model_path: /models/Qwen3-8B-Q4_K_M.gguf

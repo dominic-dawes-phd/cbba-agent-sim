@@ -1,0 +1,8 @@
+# Dev figures for the home kitchen: python -m experiments.dev_refresh configs/dev/m2_home.yaml.
+env: m2_home
+episodes: [configs/m2_home_oracle.yaml, configs/m2_home_greedy.yaml, configs/m2_home.yaml]
+first_seed: 0
+seeds: 3
+loss_levels: [0.3, 0.6]
+range_levels: [12, 8, 4]
+churn: {num_agents: 1, earliest_tick: 40, latest_tick: 40, rejoin_delay: 60}

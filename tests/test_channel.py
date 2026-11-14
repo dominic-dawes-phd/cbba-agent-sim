@@ -1,9 +1,8 @@
 import dataclasses
-import json
 
 from sim.channel import Network, delivery_prob
 from sim.config import ChannelConfig
-from sim.logger import EpisodeLogger
+from sim.logger import EpisodeLogger, read_stream
 
 PERFECT = ChannelConfig(
     base_loss=0.0, comm_range=None, d0=None, alpha=4.0, wall_penalty=1.0, latency_ticks=0
@@ -15,7 +14,7 @@ def channel(**overrides):
 
 
 def message_rows(run_dir):
-    return [json.loads(line) for line in (run_dir / "messages.jsonl").read_text().splitlines()]
+    return read_stream(run_dir, "messages")
 
 
 def send_many(config, walls, seed, run_dir, positions, online, count=50):

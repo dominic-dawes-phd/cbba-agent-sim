@@ -36,8 +36,23 @@ class Network:
     """Seeded lossy broadcast channel. Delivery takes one hop tick plus the configured latency."""
 
     def __init__(
-        self, config: ChannelConfig, walls: set[Cell], seed: int, logger: EpisodeLogger
+        self,
+        config: ChannelConfig,
+        walls: set[Cell],
+        seed: int,
+        logger: EpisodeLogger,
+        silenced: tuple[str, ...] = (),
     ) -> None:
+        """Sets up the channel.
+
+        Args:
+            config: Loss, range, falloff, and latency.
+            walls: Wall cells, for the wall penalty.
+            seed: The episode seed (the channel has its own random stream).
+            logger: Where every message, delivered or dropped, is logged.
+            silenced: Message kinds this condition never sends (C1 sends no `task_found`).
+        """
+        self._silenced = silenced
         self._config = config
         self._walls = walls
         self._rng = random.Random(f"{seed}:channel")
@@ -54,6 +69,8 @@ class Network:
         online: dict[str, bool],
     ) -> None:
         """Sends one copy to every other agent, deciding drops now with the seeded RNG."""
+        if kind in self._silenced:
+            return
         for receiver in sorted(positions):
             if receiver == sender:
                 continue

@@ -1,0 +1,65 @@
+# Household mission built from task templates (configs/task_templates.yaml). Cells are [x, y],
+# y increasing downward. Headings: 0 east, 90 south, 180 west, 270 north.
+# Furniture may span a rectangle (`cells: [corner, corner]`); each cell is a slot, numbered row by
+# row, holding at most `slot_capacity` items. Total cupboard slots equal the number of dishes.
+
+objects:
+  # Kitchen furniture (static, impassable, location known from the map at tick 0).
+  - {id: counter_1, type: counter, cells: [[1, 1], [2, 1]], furniture: true, surface: true,
+     slot_capacity: 3}
+  - {id: dishwasher_1, type: dishwasher, cell: [3, 1], furniture: true, container: true,
+     open: false, washing_time: 60}
+  - {id: cabinet_1, type: cabinet, cells: [[4, 1], [5, 1]], furniture: true, container: true,
+     open: false, slot_capacity: 1}
+  - {id: trashcan_1, type: trashcan, cell: [8, 1], furniture: true, container: true, open: false,
+     capacity: 5}
+  - {id: pantry_1, type: pantry, cells: [[1, 6], [2, 6]], furniture: true, container: true,
+     open: false, slot_capacity: 2}
+  - {id: drying_rack_1, type: drying_rack, cell: [4, 6], furniture: true, surface: true}
+  - {id: cabinet_2, type: cabinet, cells: [[6, 6], [8, 6]], furniture: true, container: true,
+     open: false, slot_capacity: 1}
+  # Dining and outside.
+  - {id: table_1, type: table, cells: [[12, 2], [13, 2]], furniture: true, surface: true}
+  - {id: grocery_table_1, type: table, cells: [[11, 6], [12, 6]], furniture: true, surface: true,
+     visual: {entry: "yes"}}
+  - {id: bin_1, type: bin, cell: [20, 1], furniture: true, container: true}
+  # Docks: idle agents park next to their own, out of the doorways.
+  - {id: dock_arm_a, type: dock, cell: [1, 3], furniture: true}
+  - {id: dock_arm_b, type: dock, cell: [17, 1], furniture: true}
+  - {id: dock_carrier_c, type: dock, cell: [17, 6], furniture: true}
+  # Movable objects. plate_3 has no mission task: an agent discovers it by seeing it.
+  - {id: plate_1, type: plate, parent: counter_1, visual: {dirty: "yes"}}
+  - {id: plate_3, type: plate, parent: counter_1, visual: {dirty: "yes"}}
+  - {id: plate_2, type: plate, parent: table_1, visual: {dirty: "yes"}, hidden: {fragile: "yes"}}
+  - {id: bowl_1, type: bowl, parent: dishwasher_1, visual: {dirty: "no"}}
+  - {id: bowl_2, type: bowl, parent: dishwasher_1, visual: {dirty: "no"}}
+  - {id: milk_1, type: milk, parent: grocery_table_1, hidden: {needs_cold: "yes"}}
+  - {id: bread_1, type: bread, parent: grocery_table_1}
+  - {id: apple_1, type: apple, parent: grocery_table_1, slot: 1}
+  - {id: scrap_1, type: food_scrap, parent: trashcan_1, visual: {trash: "yes"}}
+  - {id: scrap_2, type: food_scrap, parent: trashcan_1, visual: {trash: "yes"}}
+  - {id: scrap_3, type: food_scrap, parent: trashcan_1, visual: {trash: "yes"}}
+  - {id: trashcan_1_bag, type: trash_bag, parent: trashcan_1, visual: {tied: "no"}}
+
+agents:
+  - {id: arm_a, cell: [4, 3], heading: 270, hands: 2, speed: 1, view_range: 8, view_angle: 360}
+  - {id: arm_b, cell: [13, 4], heading: 180, hands: 1, speed: 1, view_range: 8, view_angle: 360}
+  - {id: carrier_c, cell: [11, 4], heading: 180, hands: 1, speed: 2, view_range: 8,
+     view_angle: 360, can_scan: true}
+
+tasks:
+  # reveal_on: in discovered mode, the bowls (inside) and the bag (in the can) cannot be seen, so
+  # these tasks are revealed by seeing the dishwasher and the trashcan.
+  - {id: t_unpack, kind: unpack_dishwasher, appliance: dishwasher_1, items: [bowl_1, bowl_2],
+     dest: cabinet_1, reveal_on: [dishwasher_1]}
+  - {id: t_clean1, kind: clean_plate, item: plate_1, appliance: dishwasher_1, after: [t_unpack]}
+  - {id: t_clean2, kind: clean_plate, item: plate_2, appliance: dishwasher_1, after: [t_unpack]}
+  - {id: t_groceries, kind: pack_groceries, source: grocery_table_1,
+     items: [milk_1, bread_1, apple_1], dest: pantry_1}
+  - {id: t_trash, kind: take_out_trash, can: trashcan_1, bag: trashcan_1_bag, bin: bin_1,
+     reveal_on: [trashcan_1]}
+
+scripted_assignment:
+  arm_a: [t_unpack, t_clean1]
+  arm_b: [t_clean2]
+  carrier_c: [t_groceries, t_trash]
