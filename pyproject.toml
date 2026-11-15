@@ -1,6 +1,6 @@
 [project]
 name = "cbba-agent-sim"
-version = "5.4.0"
+version = "5.4.1"
 description = "Simulator for leaderless semantic allocation with LLM-driven robot teams (CMSC 601)."
 requires-python = ">=3.11"
 dependencies = [

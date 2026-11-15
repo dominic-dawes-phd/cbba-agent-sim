@@ -16,5 +16,5 @@ echo "image: $sif"
 apptainer exec "$sif" python3 --version
 apptainer exec "$sif" llama-server --version
 
-cluster/fetch_model.sh qwen3-8b
+bash scripts/fetch_model.sh qwen3-8b "$SCRATCH_DIR/models"
 echo "setup done; next: a smoke run (docs/design/cluster.md)"

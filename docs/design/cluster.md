@@ -76,7 +76,7 @@ The rerun gets a new stamp; give Claude both stamps.
 - **`llama-server exited` in `slurm_<i>.out`:** read `server_shard<i>.log`. "CUDA error: out of memory" means the GPU has under about 8 GB free; ask for a larger GPU type in `GPU_REQUEST`.
 - **HTTP 500 "Context size has been exceeded"** in a server log: raise `--ctx-size` in `cluster/run_shard.sh` (it is 32768, sized for six house prompts of up to 4.4k tokens).
 - **A task hits its time limit:** raise `TIME` in `cluster.env`, or use more shards.
-- **`sha256 mismatch`** from `fetch_model.sh`: delete the file in `$SCRATCH_DIR/models` and rerun `setup.sh`.
+- **`sha256 mismatch`** from `scripts/fetch_model.sh`: delete the file in `$SCRATCH_DIR/models` and rerun `setup.sh`.
 
 ## Files
 
@@ -84,7 +84,7 @@ The rerun gets a new stamp; give Claude both stamps.
 |---|---|
 | `Dockerfile`, `.github/workflows/container.yml` | The runtime image and its build |
 | `cluster/cluster.env` | Your cluster's settings: the only file to edit |
-| `cluster/setup.sh`, `cluster/fetch_model.sh` | One-time image and model download, with sha256 check |
+| `cluster/setup.sh`, `scripts/fetch_model.sh` | One-time image and model download, with sha256 check (the fetch script is shared with the laptop) |
 | `cluster/submit.sh` | Submits a spec as a Slurm array under one stamp |
 | `cluster/sweep.sbatch`, `cluster/run_shard.sh` | One array task: start the server, run the shard, stop the server |
 | `cluster/pack_results.sh` | Tars one launch for the laptop |

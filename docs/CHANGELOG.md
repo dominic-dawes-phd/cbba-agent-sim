@@ -10,6 +10,12 @@ What changed in the simulator and experiment tooling, newest first. Design ratio
 
 Each entry is 3-6 bullets and names its date.
 
+## [5.4.01] PATCH (Nov 14, 2026)
+- **`README.md`:** a hands-on guide for running without an AI assistant: directory map, venv setup, first coded runs, LLM runs on the laptop (llama.cpp install, weights, preflight, server), container and cluster sequence, a command cheat sheet, and troubleshooting for the failures seen so far.
+- **`scripts/`:** `check.sh` (tests + lint), `start_server.sh` (laptop llama-server with the `llm_setup.md` flags; checks the binary and model first), `preflight.ps1` (free RAM, shared GPU memory, zombie processes, `docker.exe` polling; PASS/FAIL with fixes).
+- **`fetch_model.sh` moved** from `cluster/` to `scripts/` and takes a target folder, so the laptop and the cluster share it; `cluster/setup.sh` and `cluster.md` follow.
+- **Measured:** the server at `--ctx-size 32768` uses 7.2 of the RTX 4070's 8.2 GB (`llm_setup.md`). No result changes.
+
 ## [5.4.00] MINOR (Nov 14, 2026)
 - **Cluster runs** (`docs/design/cluster.md`): an Apptainer-ready image (`Dockerfile`: llama.cpp's official CUDA server at b12211 plus Python 3.12 and PyYAML), built to GHCR by `.github/workflows/container.yml`. The code is a git checkout mounted at `/work`, so code fixes need no rebuild.
 - **`cluster/` scripts:** `cluster.env` (the only file to edit), `setup.sh` and `fetch_model.sh` (image and model, sha256-checked), `submit.sh` (a Slurm array under one stamp), `sweep.sbatch` and `run_shard.sh` (one GPU, one server on its own port, one shard), `pack_results.sh` (a tarball for the laptop).

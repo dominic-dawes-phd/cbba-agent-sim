@@ -69,6 +69,8 @@ Built so far: `scripted` (dev only, never in the paper: fixed or round-robin ass
 | `configs/generator/`, `configs/generated/` | Generator settings; generated houses (map, mission, greedy and scripted episode configs) |
 | `tests/` | pytest unit and episode tests |
 | `cluster/`, `Dockerfile`, `.github/workflows/container.yml` | Cluster scripts (`cluster.env` is the only file to edit), the runtime image (llama.cpp CUDA server + Python; the code is a bind-mounted git checkout), and its GHCR build |
+| `scripts/` | Helper scripts: `check.sh` (tests + lint), `fetch_model.sh` (weights with sha256 check; shared with the cluster), `start_server.sh` (laptop llama-server), `preflight.ps1` (memory gate) |
+| `README.md` | The hands-on guide for running everything by hand (setup, runs, cluster, cheat sheet, troubleshooting). Keep it in step when commands change. |
 
 The full layout, including what is still planned, is at the end of `docs/design/simulator.md`.
 
@@ -114,6 +116,7 @@ The full layout, including what is still planned, is at the end of `docs/design/
 Use the project venv (`python -m venv .venv`, then `.venv/Scripts/python -m pip install -e .[dev]`).
 
 - Tests: `.venv/Scripts/python -m pytest`
+- Tests + lint in one go: `bash scripts/check.sh`. Before a long LLM run: `powershell -ExecutionPolicy Bypass -File scripts/preflight.ps1`; start the server with `bash scripts/start_server.sh`; weights via `bash scripts/fetch_model.sh qwen3-8b ~/llm`.
 - Lint: `.venv/Scripts/ruff check .` and `.venv/Scripts/ruff format --check .`
 - One episode: `.venv/Scripts/python -m experiments.run_single configs/m1_smoke.yaml` (logs go to `runs/<name>/seed_<seed>/`, replacing the last run)
 - One episode to keep: add `--run-name <exp>` (logs go to `runs/<exp>/<env>/<cell>/<YYYYMMDD-HHMMSS>/seed_<seed>/`; `analyze` and `plot` take `--stamp` to select one launch)

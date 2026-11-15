@@ -13,6 +13,8 @@ The model file's sha256 is written to every LLM run's `run.json` (`model_file_ha
 
 ## Install (Windows, native)
 
+The model can also be fetched with its checksum verified: `bash scripts/fetch_model.sh qwen3-8b ~/llm`.
+
 ```bash
 mkdir -p /c/Users/domin/llm && cd /c/Users/domin/llm
 curl -L -o llama.zip https://github.com/ggml-org/llama.cpp/releases/download/b12211/llama-b12211-bin-win-cuda-12.4-x64.zip
@@ -25,6 +27,8 @@ WSL2 is a fallback only if the Windows build lacks something we need. The Ubuntu
 
 ## Run the server
 
+`bash scripts/start_server.sh` runs exactly this command (and checks the binary and model exist first). Run `powershell -ExecutionPolicy Bypass -File scripts/preflight.ps1` before a long run.
+
 ```bash
 /c/Users/domin/llm/llama.cpp/llama-server.exe -m /c/Users/domin/llm/Qwen3-8B-Q4_K_M.gguf \
   --host 127.0.0.1 --port 8080 -ngl 99 --jinja \
@@ -33,7 +37,7 @@ WSL2 is a fallback only if the Windows build lacks something we need. The Ubuntu
 ```
 
 - **`--parallel 6`:** one slot per agent in a house, so the requests of one tick are batched. Each agent is pinned to its own slot (`llm.pin_slots`), so its system prompt stays in that slot's prompt cache.
-- **`--kv-unified --ctx-size 32768`:** one KV buffer shared by all slots. Each slot keeps its last prompt cached, so the buffer must hold six full house prompts at once. A kitchen executor prompt is about 0.7k tokens. A house prompt (prompt plus reply) is 2.8k tokens at the median, 4.0k at the 99th percentile, and 4.4k at most (house LLM pilot, Nov 12-14). Six slots therefore need up to about 27k tokens. Confirm VRAM with `nvidia-smi` after loading; at 16k the server used 5.9 of the RTX 4070's 8 GB, and the extra 16k of q8 KV adds about 1.2 GB.
+- **`--kv-unified --ctx-size 32768`:** one KV buffer shared by all slots. Each slot keeps its last prompt cached, so the buffer must hold six full house prompts at once. A kitchen executor prompt is about 0.7k tokens. A house prompt (prompt plus reply) is 2.8k tokens at the median, 4.0k at the 99th percentile, and 4.4k at most (house LLM pilot, Nov 12-14). Six slots therefore need up to about 27k tokens. Confirm VRAM with `nvidia-smi` after loading; at 16k the server used 5.9 of the RTX 4070's 8 GB, and the extra 16k of q8 KV adds about 1.2 GB. *Measured, Nov 14:* 7.2 of 8.2 GB at 32k.
   - *Measured, Nov 12-14:* with `--ctx-size 16384`, the server answered HTTP 500 "Context size has been exceeded" 107 times in the house pilot, and 3 of 24 episodes stopped after their retries ran out.
   - *Measured, Nov 8:* split per-slot buffers of 36,864 and then 30,720 tokens (2.2 GiB of q8 KV beside the 4.7 GiB model) both ran out of CUDA memory mid-episode, after 12 and 19 minutes. Those crashes now look like host memory exhaustion (see the zombie-process leak below), not VRAM, but recheck VRAM if 32k crashes.
 - **`-b 512 -ub 256`:** smaller batch buffers, which shrink the compute buffer.
