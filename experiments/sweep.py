@@ -22,6 +22,7 @@ import logging
 import operator
 import shutil
 import sys
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -29,8 +30,16 @@ from pathlib import Path
 import yaml
 
 from experiments.analyze import print_summary, write_metrics
+from experiments.console import (
+    configure_console,
+    print_banner,
+    print_sweep_footer,
+    print_sweep_header,
+    run_checks,
+)
 from experiments.run_single import CODED_CONDITIONS, run_config
 from sim.config import RUN_STAMP_FORMAT, EpisodeConfig, load_config
+from sim.logger import format_duration
 
 RUNS_ROOT = Path("runs")
 # Windows power request flags: keep the machine out of idle sleep (Modern Standby freezes every
@@ -43,7 +52,7 @@ log = logging.getLogger(__name__)
 
 def main() -> None:
     """Command-line entry point."""
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    configure_console()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", type=Path, help="a sweep spec in configs/sweeps/")
     parser.add_argument("--shard", type=int, default=0, help="this shard's index, from 0")
@@ -67,18 +76,16 @@ def main() -> None:
     shutil.copyfile(args.spec, experiment_dir / f"sweep_{stamp}.yaml")
     all_episodes = build_cells(spec, RUNS_ROOT)
     episodes = all_episodes[args.shard :: args.of]
-    log.info(
-        "%s: %d of %d episodes (shard %d of %d), stamp %s",
-        spec["experiment"],
-        len(episodes),
-        len(all_episodes),
-        args.shard,
-        args.of,
-        stamp,
-    )
+    print_banner(f"sweep: {args.spec}")
+    if not run_checks(episodes, RUNS_ROOT):
+        print("A status check failed; fix it and rerun.")
+        sys.exit(2)
+    print_sweep_header(spec, episodes, len(all_episodes), args.shard, args.of, stamp)
+    began = time.perf_counter()
     keep_awake(True)
     run_dirs, failed = run_episodes(episodes, spec["workers"], spec["experiment"], stamp)
     keep_awake(False)
+    print_sweep_footer(len(run_dirs), failed, time.perf_counter() - began)
     print_summary(write_metrics(sorted(run_dirs)))
     print(f"Logs in {experiment_dir}, stamp {stamp}")
     if failed:
@@ -168,21 +175,33 @@ def run_episodes(
     """
     run_dirs = []
     failed = []
-    with ProcessPoolExecutor(max_workers=workers) as pool:
+    began = time.perf_counter()
+    # Each worker process sets up its own console, so episodes' progress lines show there too.
+    with ProcessPoolExecutor(max_workers=workers, initializer=configure_console) as pool:
         futures = {
             pool.submit(run_config, config, experiment, stamp): config for config in episodes
         }
         for done, future in enumerate(as_completed(futures), start=1):
             config = futures[future]
             label = episode_label(config)
+            elapsed = time.perf_counter() - began
+            left = format_duration(elapsed / done * (len(episodes) - done))
             try:
-                run_dir, _ = future.result()
+                run_dir, final_tick = future.result()
             except Exception:  # one broken episode must not lose the rest of a long sweep
-                log.exception("Episode %s failed", label)
+                log.exception("[%d/%d] FAILED %s; about %s left", done, len(episodes), label, left)
                 failed.append(label)
                 continue
             run_dirs.append(run_dir)
-            log.info("[%d/%d] %s", done, len(episodes), label)
+            log.info(
+                "[%d/%d] finished %s at tick %d | %s so far, about %s left",
+                done,
+                len(episodes),
+                label,
+                final_tick,
+                format_duration(elapsed),
+                left,
+            )
     return run_dirs, failed
 
 

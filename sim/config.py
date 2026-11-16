@@ -36,6 +36,10 @@ TASK_TEMPLATES_PATH = Path("configs/task_templates.yaml")
 # Its [project] version is the docs/CHANGELOG.md version, recorded in every run.json.
 PYPROJECT_PATH = Path("pyproject.toml")
 
+# Wall-clock seconds between console progress lines during an episode (a display setting only;
+# nothing simulated depends on it). The first and last tick always get a line.
+PROGRESS_LOG_SECONDS = 60.0
+
 # Ticks a moving agent may make no progress (blocked by bodies or reserved workspaces) before
 # move_to fails and hands the decision back to the policy.
 BLOCKED_PATIENCE_TICKS = 6

@@ -9,6 +9,8 @@ import argparse
 import dataclasses
 import json
 import random
+import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +20,14 @@ from allocation.greedy import GreedyAllocator, GreedyPolicy
 from allocation.llm_policy import LLMPolicy
 from allocation.oracle import OraclePlan, OraclePolicy, solve_oracle
 from allocation.scripted import ScriptedPolicy
+from experiments.analyze import write_metrics
+from experiments.console import (
+    configure_console,
+    print_banner,
+    print_episode_header,
+    print_episode_summary,
+    run_checks,
+)
 from llm.client import LLMClient, OpenAIChatClient, model_file_hash
 from sim.agent import Policy
 from sim.config import ORACLE_PLAN_FILE, RUN_STAMP_FORMAT, EpisodeConfig, load_config
@@ -189,14 +199,24 @@ def run_config(
 
 
 def main() -> None:
-    """Command-line entry point."""
+    """Command-line entry point: banner, status checks, the episode, and its summary."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=Path, help="episode config YAML")
     parser.add_argument("--run-name", help="the experiment this run belongs to; keeps its logs")
     args = parser.parse_args()
+    configure_console()
+    config = load_config(args.config)
+    print_banner(f"single episode: {args.config}")
+    if not run_checks([config], config.output_dir):
+        print("A status check failed; fix it and rerun.")
+        sys.exit(2)
     stamp = datetime.now().strftime(RUN_STAMP_FORMAT) if args.run_name else None
-    run_dir, final_tick = run_config(load_config(args.config), args.run_name, stamp)
-    print(f"Episode ended at tick {final_tick}. Logs in {run_dir}")
+    scenario = load_episode_scenario(config)
+    print_episode_header(config, scenario, run_dir_of(config, args.run_name, stamp))
+    began = time.perf_counter()
+    run_dir, final_tick = run_config(config, args.run_name, stamp, scenario=scenario)
+    metrics = write_metrics([run_dir])[0]
+    print_episode_summary(config, metrics, final_tick, time.perf_counter() - began, run_dir)
 
 
 if __name__ == "__main__":

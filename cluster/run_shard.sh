@@ -25,6 +25,7 @@ flags=(--host 127.0.0.1 --port "$port" -ngl 99 --jinja
   echo "host: $(hostname)"
   echo "gpu: $(nvidia-smi -L | tr '\n' ' ')"
   echo "driver: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)"
+  echo "cuda: $(nvidia-smi | sed -n 's/.*CUDA Version: *\([0-9.]*\).*/\1/p')"
   echo "server: $(llama-server --version 2>&1 | tr '\n' ' ')"
   echo "model: $model"
   echo "flags: ${flags[*]}"
@@ -33,7 +34,10 @@ flags=(--host 127.0.0.1 --port "$port" -ngl 99 --jinja
 
 llama-server -m "$model" "${flags[@]}" > "$log_dir/server_shard$shard.log" 2>&1 &
 server=$!
-trap 'kill "$server" 2>/dev/null || true' EXIT
+# One GPU sample a minute for the whole shard (utilization and memory, for the cost section).
+nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used,memory.total --format=csv -l 60   > "$log_dir/gpu_shard$shard.csv" &
+sampler=$!
+trap 'kill "$server" "$sampler" 2>/dev/null || true' EXIT
 
 for _ in $(seq 1 300); do
   if curl -sf "http://127.0.0.1:$port/health" > /dev/null; then

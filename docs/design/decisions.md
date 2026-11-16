@@ -441,6 +441,13 @@ The plan the user approved ("integrate LLMs and implement C1-C3"), with their ch
 - **Comparability rule:** simulated time never depends on the GPU (hard rules 1 and 3), but replies can differ across GPUs and llama.cpp builds even at temperature 0. A comparison never mixes laptop and cluster runs. Paper runs all come from the cluster, and the house pilot is rerun there, which also measures how far the laptop's 21 episodes move on different hardware.
 - **Sweep specs gained** an optional `llm:` block (replaces fields of every episode's `llm`, such as `model_path: /models/...`) and an optional `only:` list (rerun named episodes). The runner takes `--shard`, `--of`, `--stamp`, and `--endpoint`; these are infrastructure, not experiment settings, and never reach a prompt or a cache key.
 
+### Cluster target is UMBC HPCF `chip`; one GPU model per experiment (Nov 16, 2026, v5.4.02)
+
+- **The cluster runner targets `chip`** (`cluster.md`; facts from the HPCF FAQ, read Nov 16). GPUs are a separate Slurm cluster (`-M chip-gpu`), the account is `pi_<group>`, and the GPU model is chosen with `--constraint`. Home is 500 MB, so the checkout, image, model, caches, and `runs/` live on the group's research volume. Modules work only on compute nodes, so setup runs inside a short GPU job.
+- **One GPU model per experiment, L40S by default.** *Why:* replies can differ between GPU models (the Nov 14 comparability rule), so mixing the RTX 6000, RTX 8000, L40S, and H100 nodes inside a comparison would add hardware noise to paired differences. L40S: 40 cards (10 nodes x 4), 48 GB, and native kernels in llama.cpp's CUDA image (Ada, sm_89); the Turing cards would JIT-compile kernels.
+- **Logs come back with every launch.** A dependent collect job runs after the last shard (success or not) and writes `summary.txt`: Slurm state per shard, requeues, failed episodes with a ready `only:` rerun line, server error counts, GPU and build per shard. A per-minute GPU sample (`gpu_shard<i>.csv`) gives the cost section utilization and memory. Preempted shards are requeued and rerun under the same stamp; finished calls replay from the response cache.
+- **Not in the HPCF docs, recorded by `setup.sh` in `cluster_info.txt` on first use:** chip-gpu QOS limits, which partitions hold the L40S nodes, and the installed driver (a sample shows 575 / CUDA 12.9; the image needs CUDA 12.8+).
+
 ## Future work
 
 Deferred on purpose. Nothing here is built unless marked.

@@ -17,6 +17,7 @@ mission task.
 
 import copy
 import dataclasses
+import logging
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -48,6 +49,7 @@ from sim.config import (
     DIALOGUE_CONDITION,
     EXPLORING_TOOLS,
     MOVING_TOOLS,
+    PROGRESS_LOG_SECONDS,
     REFLEX_TOOLS,
     RETURN_ITEM_TOOL,
     RETURN_TO_TASK_TOOL,
@@ -66,7 +68,7 @@ from sim.exploration import (
     retarget_explorers,
     team_coverage,
 )
-from sim.logger import EpisodeLogger, JsonValue
+from sim.logger import EpisodeLogger, JsonValue, format_duration
 from sim.motion import advance_moves
 from sim.pathing import PathPlanner
 from sim.perception import VisibleCells
@@ -92,6 +94,8 @@ ANNOUNCE_TRANSITIONS: dict[str, str] = {
     "claim": "claimed",
     "release": "released",
 }
+
+log = logging.getLogger(__name__)
 
 
 def run_episode(
@@ -135,6 +139,8 @@ def run_episode(
         logger.write("events", 0, {"agent": None, "task": task.task_id, "transition": transition})
 
     code_inbox: dict[str, list[Message]] = {agent_id: [] for agent_id in team_ids}
+    began = time.perf_counter()
+    reported_at = began
     for tick in range(config.max_ticks):
         world.tick = tick
         for agent_id, crash_tick in sorted(crash_ticks.items()):
@@ -218,6 +224,13 @@ def run_episode(
         record_task_progress(world, scenario.tasks, done_ticks, voided, logger)
         all_done = len(done_ticks) + len(voided) == len(scenario.tasks)
         last_tick = all_done or tick == config.max_ticks - 1
+        # A line a minute; LLM episodes (minutes to hours) also get one at the first and last tick.
+        now = time.perf_counter()
+        bookend = config.executor == "llm" and (tick == 0 or last_tick)
+        if bookend or now - reported_at >= PROGRESS_LOG_SECONDS:
+            task_count = len(scenario.tasks)
+            log_progress(config, tick, done_ticks, voided, task_count, agents, logger, began)
+            reported_at = now
         write_poses(agents, tick, logger)
         if tick % config.snapshot_every == 0 or last_tick:
             write_snapshot(world, agents, floor, ttl, logger)
@@ -225,6 +238,36 @@ def run_episode(
             write_belief_graphs(agents, "final", tick, logger)
             return tick
     return config.max_ticks - 1
+
+
+def log_progress(
+    config: EpisodeConfig,
+    tick: int,
+    done_ticks: dict[str, int],
+    voided: set[str],
+    task_count: int,
+    agents: dict[str, AgentState],
+    logger: EpisodeLogger,
+    began: float,
+) -> None:
+    """Logs one console line on how far the episode has got.
+
+    Display only: nothing simulated reads it, and the wall time it shows is a cost (hard rule 1).
+    """
+    online = sum(agent.online for agent in agents.values())
+    line = (
+        f"{config.env}/{config.name}/seed_{config.seed} | tick {tick}/{config.max_ticks}"
+        f" | tasks {len(done_ticks)}/{task_count} done"
+    )
+    if voided:
+        line += f", {len(voided)} voided"
+    line += f" | online {online}/{len(agents)}"
+    if config.executor == "llm":
+        line += (
+            f" | LLM {logger.llm_calls} calls ({logger.cached_calls} cached),"
+            f" {logger.tokens / 1e6:.2f}M tokens"
+        )
+    log.info("%s | %s wall", line, format_duration(time.perf_counter() - began))
 
 
 def schedule_crashes(churn: ChurnConfig, team_ids: list[str], rng: random.Random) -> dict[str, int]:

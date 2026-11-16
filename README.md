@@ -39,6 +39,7 @@ cbba-agent-sim/
 ├── experiments/              # command-line tools (run with python -m experiments.<name>)
 │   ├── run_single.py         #   run one episode from a config
 │   ├── sweep.py              #   run a whole experiment from a sweep spec
+│   ├── console.py            #   HiveSim banner, status checks, progress lines, summaries
 │   ├── analyze.py            #   metrics from logs, means with 95% CIs
 │   ├── plot.py               #   paper ("hero") figures
 │   ├── dev_refresh.py        #   quick check figures for the dev environments
@@ -59,11 +60,12 @@ cbba-agent-sim/
 │   ├── fetch_model.sh        #   download model weights, verify sha256
 │   ├── start_server.sh       #   start the local llama.cpp server
 │   └── preflight.ps1         #   memory check before long runs (Windows)
-├── cluster/                  # running sweeps on the university GPU cluster
-│   ├── cluster.env           #   YOUR cluster settings: the only file to edit
-│   ├── setup.sh              #   one-time: pull the image, fetch the model
-│   ├── submit.sh             #   submit a sweep as a Slurm array
-│   ├── sweep.sbatch, run_shard.sh  # what each array task runs (server + shard)
+├── cluster/                  # running sweeps on UMBC HPCF (chip), or any Slurm cluster
+│   ├── cluster.env           #   YOUR cluster settings: the only file to edit (set GROUP)
+│   ├── setup.sh              #   one-time, inside a GPU job: image, model, cluster_info.txt
+│   ├── submit.sh             #   submit a sweep as a Slurm array + a collect job
+│   ├── sweep.sbatch, run_shard.sh  # what each array task runs (server + shard + GPU log)
+│   ├── collect.sh            #   after the last shard: summary.txt, then pack
 │   └── pack_results.sh       #   tar one launch for the trip back to the laptop
 ├── docs/
 │   ├── CHANGELOG.md          #   what changed in each version
@@ -159,29 +161,53 @@ LLM conditions (G with the LLM executor, C1, C2, C3) need a model server. The la
 
 ## Container and cluster (long sweeps)
 
-A house episode takes about 70 minutes on the laptop, so the paper's sweeps run on the university GPU cluster. Full runbook: `docs/design/cluster.md`.
+A house episode takes about 70 minutes on the laptop, so the paper's sweeps run on UMBC HPCF's `chip` cluster (L40S GPUs). Full runbook, including the account request: `docs/design/cluster.md`.
 
 - **The image** (`Dockerfile`) contains only the runtime: llama.cpp's CUDA server (same build as the laptop), Python 3.12, and PyYAML. GitHub builds it (`.github/workflows/container.yml`) and publishes it as `ghcr.io/dominic-dawes-phd/cbba-agent-sim:b12211`.
 - **The code is not in the image.** The cluster uses a `git clone` of this repo, mounted into the container, so after a code change you only `git pull` there.
 - **Apptainer** (the cluster's container tool) turns the image into one file (`.sif`) and runs it with the GPU. One Slurm array task = one GPU + one model server + a share of the episodes.
 
 ```bash
-# on a cluster login node, once:
+# once: log in, clone onto the research volume (home is only 500 MB)
+ssh <you>@chip.rs.umbc.edu
+cd /umbc/rs/<group>/users/<you>
 git clone https://github.com/dominic-dawes-phd/cbba-agent-sim.git && cd cbba-agent-sim
-nano cluster/cluster.env                                    # partition, account, scratch folder
-bash cluster/setup.sh                                       # pull image, fetch model
+nano cluster/cluster.env                                    # GROUP (and MAIL_USER if wanted)
+bash cluster/setup.sh          # on the login node it only prints the srun line for a GPU job;
+                               # run that, cd back here, rerun setup.sh, send back cluster_info.txt
 
 # every time:
 git pull
 bash cluster/submit.sh configs/sweeps/cluster_smoke_llm.yaml 1   # smoke test, 1 GPU
 bash cluster/submit.sh configs/sweeps/cluster_pilot_llm.yaml 8   # the pilot, 8 GPUs
-squeue --me                                                  # is it running?
-bash cluster/pack_results.sh <experiment> <stamp>            # names printed by submit.sh
+squeue -M chip-gpu --me                                      # is it running?
+cat runs/<experiment>/cluster_<stamp>/summary.txt            # written by the collect job at the end
 
-# back on the laptop, in the repo folder:
-scp <you>@<cluster>:<path printed by pack_results.sh> runs/
+# back on the laptop, in the repo folder (the exact scp line is at the end of collect.out):
+scp <you>@chip.rs.umbc.edu:<repo on chip>/runs/<experiment>_<stamp>.tar.gz runs/
 tar -xzf runs/<experiment>_<stamp>.tar.gz
 python -m experiments.analyze runs/<experiment> --stamp <stamp>
+```
+
+## What the terminal shows (and checking back with tmux)
+
+`run_single` and `sweep` print the HiveSim banner, then:
+
+1. **Status checks**, one `[ OK ]`, `[WARN]`, or `[FAIL]` line each: Python version, git commit (a warning if there are uncommitted changes), free disk under `runs/`, and for LLM runs the GPU (`nvidia-smi`), the model file, the response cache, and the server (`/health`, then its slots and context size). A `FAIL` stops before anything runs, with the fix on the same line (exit code 2).
+2. **What runs**: condition (C0-C3, G), mission, tasks, agents, seed, tick budget, channel, churn, model and server, and where the logs go. A sweep shows its cells and shard.
+3. **Progress lines**, timestamped, so a glance tells you whether it is alive:
+   - every minute during an episode, and at the first and last tick of an LLM episode: `<env>/<cell>/seed_<n> | tick 812/2100 | tasks 9/22 done | online 6/6 | LLM 431 calls (0 cached), 1.14M tokens | 18m02s wall`;
+   - in a sweep, one line per finished episode: `[3/24] finished ... at tick 1904 | 3h31m so far, about 24h left`.
+4. **A summary**: how it ended, tasks done, the ratio to the oracle (if one ran), LLM calls and tokens, messages, wall time. A sweep adds the finished/failed count and its per-cell table.
+
+Colors appear only in a terminal (set `NO_COLOR=1` to turn them off); files and Slurm logs get plain text. Wall time is shown as a cost only; every result is in simulated ticks.
+
+To leave a long run going and check back later (Linux or WSL; on the cluster, read `slurm_<i>.out` instead):
+
+```bash
+tmux new -s hive                                      # a session that survives closing the terminal
+python -m experiments.sweep configs/sweeps/pilot_llm.yaml    # (| tee a file to keep a copy; colors then go)
+# detach: Ctrl-b then d    come back: tmux attach -t hive    scroll back: Ctrl-b then [    list: tmux ls
 ```
 
 ## Command cheat sheet
@@ -227,7 +253,9 @@ Run from the repo root with the venv active.
 | `CacheMissError` | `llm.replay_only: true` but the reply was never cached | set `replay_only: false` and run with the server up |
 | `$'\r': command not found` running a script | Windows line endings got into a shell script | `sed -i 's/\r$//' <script>`; `.gitattributes` keeps them LF in git |
 | `bash: cluster/submit.sh: Permission denied` | the execute bit is missing | run it as `bash cluster/submit.sh ...` |
-| Cluster: `apptainer pull` says `denied` / 401 | the GHCR package is still private | GitHub > your profile > Packages > cbba-agent-sim > Package settings > Public |
+| Cluster: `apptainer pull` says `denied` / 401 | the GHCR package is private | GitHub > your profile > Packages > cbba-agent-sim > Package settings > Public |
+| Cluster: `apptainer not found` from `setup.sh` | you are on the login node (modules work only on compute nodes) | run the `srun ... --pty bash -l` line it prints, then `setup.sh` again |
+| Cluster: `Disk quota exceeded`, or login fails | the 500 MB home is full | `du -sh ~/.* ~/*`; move big folders to `/umbc/rs/<group>/users/<you>` |
 | Cluster: `llama-server exited` in `slurm_<i>.out` | see `runs/<exp>/cluster_<stamp>/server_shard<i>.log` | driver too old (needs CUDA 12.8+) or GPU too small: `docs/design/cluster.md` |
 | Results look different from the laptop's | different GPU or llama.cpp build changes some replies | expected; never mix laptop and cluster runs in one comparison |
 

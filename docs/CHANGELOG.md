@@ -10,6 +10,20 @@ What changed in the simulator and experiment tooling, newest first. Design ratio
 
 Each entry is 3-6 bullets and names its date.
 
+## [5.4.03] PATCH (Nov 16, 2026)
+- **HiveSim console** (`experiments/console.py`): `run_single` and `sweep` print a HiveSim banner (version, commit, host) and timestamped log lines on stdout, colored only on a terminal (`NO_COLOR` turns colors off), so a tmux pane and a Slurm log read the same.
+- **Status checks before a run** (`[ OK ]`/`[WARN]`/`[FAIL]`): Python, git commit and uncommitted changes, free disk, and for LLM runs the GPU, model file, response cache, and server (`/health`, then slots and context from `/props`). A failure stops the run with exit code 2 and the fix.
+- **Progress lines:** each episode logs a line a minute, and LLM episodes also at their first and last tick (tick, tasks done, agents online, LLM calls, tokens, wall time); `EpisodeLogger` keeps the running call and token totals. A sweep logs each finished episode with the time so far and an estimate of the time left.
+- **Headers and summaries:** condition, mission, budget, channel, churn, model, and log folder before an episode; outcome, tasks, oracle ratio, LLM cost, messages, and wall time after it (`run_single` now writes the run's `metrics.json`). Display only: no simulated quantity or log stream changes.
+- **README:** what the terminal shows and how to leave a run in tmux and check back.
+
+## [5.4.02] PATCH (Nov 16, 2026)
+- **Cluster runner targets UMBC HPCF `chip`** (`cluster/cluster.env`): `-M chip-gpu` on every Slurm call, `--account pi_<group>`, `--constraint L40S` (one GPU model per experiment), 12 h per shard, everything under the research volume (`DATA_DIR`, replacing `SCRATCH_DIR`) because home is 500 MB.
+- **`cluster/setup.sh`** runs inside a GPU job (modules do not work on login nodes; on a login node it prints the `srun` line), keeps the Apptainer cache off home, and writes `cluster_info.txt` (partitions, accounts, QOS, driver, disk) to send back.
+- **`cluster/collect.sh`** (new), submitted by `submit.sh` as a dependent job: after the last shard, writes `summary.txt` (Slurm states, requeues, failed episodes and an `only:` rerun line, server error counts, GPU and build per shard) and packs the tarball; optional email via `MAIL_USER`.
+- **Per-shard logging:** `gpu_shard<i>.csv` (GPU utilization and memory each minute), CUDA version in `server_shard<i>.txt`, restart count and exit status in `slurm_<i>.out` (appended across a requeue).
+- **Docs:** `cluster.md` rewritten for `chip` (account request, setup, every run, what comes back, troubleshooting); README cluster section; decision entry Nov 16. No simulator or result changes.
+
 ## [5.4.01] PATCH (Nov 14, 2026)
 - **`README.md`:** a hands-on guide for running without an AI assistant: directory map, venv setup, first coded runs, LLM runs on the laptop (llama.cpp install, weights, preflight, server), container and cluster sequence, a command cheat sheet, and troubleshooting for the failures seen so far.
 - **`scripts/`:** `check.sh` (tests + lint), `start_server.sh` (laptop llama-server with the `llm_setup.md` flags; checks the binary and model first), `preflight.ps1` (free RAM, shared GPU memory, zombie processes, `docker.exe` polling; PASS/FAIL with fixes).

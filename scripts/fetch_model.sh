@@ -5,7 +5,7 @@
 #
 # Usage:  bash scripts/fetch_model.sh <model> <folder>
 #   laptop:   bash scripts/fetch_model.sh qwen3-8b ~/llm
-#   cluster:  called by cluster/setup.sh with "$SCRATCH_DIR/models"
+#   cluster:  called by cluster/setup.sh with "$DATA_DIR/models"
 # Models:   qwen3-8b (the default model), qwen3.5-4b, ministral3-8b
 set -euo pipefail
 

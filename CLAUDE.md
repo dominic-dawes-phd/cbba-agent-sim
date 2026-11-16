@@ -55,7 +55,7 @@ Built so far: `scripted` (dev only, never in the paper: fixed or round-robin ass
 | `docs/design/simulator.md` | Simulator design: clocks, perception, channel, ledger, logging |
 | `docs/design/decisions.md` | Dated log of decisions and open questions. **Check before changing a design choice.** |
 | `docs/design/llm_setup.md`, `llm_models.md` | Model server setup, memory checks, GPU monitoring; model candidates and the bake-off |
-| `docs/design/cluster.md` | Runbook for sweeps on the university GPU cluster (Apptainer + Slurm), without Claude Code; results come back as a tarball |
+| `docs/design/cluster.md` | Runbook for sweeps on UMBC HPCF `chip` (Apptainer + Slurm, L40S), without Claude Code; a collect job writes `summary.txt` and the tarball |
 | `docs/design/conditions.md` | Canonical condition definitions: layer model, allowed LLM tools, no-bleed rules, C1 round protocol, comparison map |
 | `docs/CHANGELOG.md` | Versioned log of what changed (`MAJOR.MINOR.PATCH`; the version is recorded in every `run.json`) |
 | `docs/DOE.md` | Design of experiments: estimands, factors and levels, responses, analysis plan, run budget, runs executed |
@@ -63,7 +63,7 @@ Built so far: `scripted` (dev only, never in the paper: fixed or round-robin ass
 | `allocation/` | Coordination logic per condition: `scripted.py` (test scaffolding and the shared scripted executor), `greedy.py` (baseline G), `oracle.py` and `oracle_cpsat.py` (C0), `llm_policy.py` (the LLM executor wrapped around an allocator), `cbba.py` (C2, C3), `utility.py` (C3's utility call), `dialogue.py` (C1) |
 | `llm/` | Latency model, OpenAI-compatible client (`client.py`), response cache, prompt building; prompt texts and tool descriptions are in `configs/prompts/` |
 | `configs/` | Episode configs, `maps/` (ASCII), `missions/` (YAML) |
-| `experiments/` | `run_single.py`, `analyze.py` (metrics from logs, bootstrap CIs), `headroom.py` (does allocation matter on a mission?), `generate_mission.py` (seeded 48x32 houses), `plot.py` (hero figures), `plot_episode.py` (per-episode views), `dev_refresh.py` (dev figures), `sweep.py` (a whole experiment from one spec) |
+| `experiments/` | `run_single.py`, `analyze.py` (metrics from logs, bootstrap CIs), `headroom.py` (does allocation matter on a mission?), `generate_mission.py` (seeded 48x32 houses), `plot.py` (hero figures), `plot_episode.py` (per-episode views), `dev_refresh.py` (dev figures), `sweep.py` (a whole experiment from one spec), `console.py` (HiveSim banner, status checks, progress lines, summaries; display only) |
 | `configs/dev/` | One dev figure spec per environment: its episode configs, seeds, and sweep levels |
 | `configs/sweeps/` | One spec per experiment: episode configs (with `{env}`), environments, seeds, sweep levels, workers |
 | `configs/generator/`, `configs/generated/` | Generator settings; generated houses (map, mission, greedy and scripted episode configs) |
@@ -128,5 +128,5 @@ Use the project venv (`python -m venv .venv`, then `.venv/Scripts/python -m pip 
 - Oracle run: `.venv/Scripts/python -m experiments.run_single configs/generated/house_48x32_s0/episode_oracle.yaml` (needs the `[solver]` extra for CP-SAT: `pip install -e .[dev,solver]`)
 - LLM run: start `llama-server` as in `docs/design/llm_setup.md`, then `.venv/Scripts/python -m experiments.run_single configs/m2_home_llm_cbba.yaml` (also `m2_home_numeric_cbba`, `m2_home_llm_only`, `m2_home_greedy_llm`; houses: `episode_{greedy_llm,numeric_cbba,llm_cbba,llm_only}.yaml`). Replies are cached in `runs/llm_cache`. Tests never need the server (`tests/fake_llm.py`).
 - Hero figures: `.venv/Scripts/python -m experiments.plot runs/<sweep> figures/<sweep>` (needs the `[analysis]` extra: `pip install -e .[dev,analysis]`)
-- Cluster sweep (on the cluster, see `docs/design/cluster.md`): `bash cluster/submit.sh configs/sweeps/cluster_pilot_llm.yaml 8`, then `bash cluster/pack_results.sh <experiment> <stamp>`; on the laptop, extract the tarball in the repo and analyze with `--stamp`. Shards of one launch share its stamp (`experiments.sweep --shard I --of N --stamp S --endpoint URL`).
+- Cluster sweep (on the cluster, see `docs/design/cluster.md`): `bash cluster/submit.sh configs/sweeps/cluster_pilot_llm.yaml 8`, and the collect job writes `runs/<experiment>/cluster_<stamp>/summary.txt` and the tarball (by hand: `bash cluster/collect.sh <experiment> <stamp> <array job id>`); on the laptop, extract the tarball in the repo and analyze with `--stamp`. Shards of one launch share its stamp (`experiments.sweep --shard I --of N --stamp S --endpoint URL`).
 - Format only Python files (`ruff format` on `*.py`); on `.` it rewrites the code blocks in `docs/*.md`.

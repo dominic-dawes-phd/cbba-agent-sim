@@ -52,6 +52,10 @@ class EpisodeLogger:
     def __init__(self, run_dir: Path) -> None:
         self.run_dir = run_dir
         self._files: dict[str, IO[str]] = {}
+        # Running totals for the console's progress lines; metrics come from the files afterwards.
+        self.llm_calls = 0
+        self.cached_calls = 0
+        self.tokens = 0
 
     def __enter__(self) -> "EpisodeLogger":
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -78,6 +82,10 @@ class EpisodeLogger:
         """Appends one row to a stream."""
         record = {"tick": tick, "wall_time": time.time(), **row}
         self._files[stream].write(json.dumps(record, sort_keys=True) + "\n")
+        if stream == "llm_calls":
+            self.llm_calls += 1
+            self.cached_calls += bool(row["cached"])
+            self.tokens += row["prompt_tokens"] + row["output_tokens"]
 
     def write_run(
         self,
@@ -94,13 +102,13 @@ class EpisodeLogger:
             stamp: The launch this run belongs to, if any.
             model_hash: The sha256 of the LLM's model file, or None (coded runs, remote models).
         """
-        commit, dirty = _git_state()
+        commit, dirty = git_state()
         record = {
             "config": dataclasses.asdict(config),
             "seed": config.seed,
             "experiment": experiment,
             "stamp": stamp,
-            "sim_version": _sim_version(),
+            "sim_version": sim_version(),
             "git_commit": commit,
             "git_dirty": dirty,
             "model_file_hash": model_hash,
@@ -117,7 +125,20 @@ def read_stream(run_dir: Path, stream: str) -> list[dict[str, JsonValue]]:
         return [json.loads(line) for line in handle]
 
 
-def _git_state() -> tuple[str | None, bool | None]:
+def format_duration(seconds: float) -> str:
+    """Wall-clock seconds as "1h02m", "4m05s", or "12s" for console lines (a cost, not a result)."""
+    whole = int(seconds)
+    hours, rest = divmod(whole, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{secs}s"
+
+
+def git_state() -> tuple[str | None, bool | None]:
+    """The checkout's commit and whether it has uncommitted changes; (None, None) outside git."""
     try:
         commit = subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
@@ -126,16 +147,16 @@ def _git_state() -> tuple[str | None, bool | None]:
             ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
         ).stdout
     except (OSError, subprocess.CalledProcessError) as error:
-        log.warning("Could not read git state for run.json: %s", error)
+        log.warning("Could not read the git state: %s", error)
         return None, None
     return commit, bool(status.strip())
 
 
-def _sim_version() -> str | None:
+def sim_version() -> str | None:
     """Reads the CHANGELOG version from pyproject.toml (installed metadata lags until reinstall)."""
     try:
         with PYPROJECT_PATH.open("rb") as handle:
             return tomllib.load(handle)["project"]["version"]
     except (OSError, tomllib.TOMLDecodeError, KeyError) as error:
-        log.warning("Could not read the sim version for run.json: %s", error)
+        log.warning("Could not read the sim version: %s", error)
         return None
