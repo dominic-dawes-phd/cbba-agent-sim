@@ -1,6 +1,6 @@
 # Running sweeps on the UMBC HPCF cluster (`chip`)
 
-How to run an experiment on UMBC's `chip` cluster (Slurm, NVIDIA GPUs, Apptainer) without Claude Code, and bring the results and logs back to the laptop for analysis. Model server details are in `llm_setup.md`; the experiment design is in `../DOE.md`. The `chip` facts below come from the HPCF FAQ (umbc.atlassian.net/wiki/spaces/faq, read Nov 16, 2026); the scripts work on another Slurm cluster after editing `cluster/cluster.env`.
+How to run an experiment on UMBC's `chip` cluster (Slurm, NVIDIA GPUs, Apptainer) without Claude Code, and bring the results and logs back to the laptop for analysis. Model server details are in `llm_setup.md`; the experiment design is in `../DOE.md`. The `chip` facts below come from the HPCF FAQ (umbc.atlassian.net/wiki/spaces/faq, read Nov 16, 2026); the scripts work on another Slurm cluster after editing `cluster/cluster.env`, and on a GPU machine without Slurm through `cluster/run_local.sh` (section "A GPU machine without Slurm").
 
 ## How it works
 
@@ -107,6 +107,29 @@ only: [house_48x32_s1/greedy_llm/seed_0, house_48x32_s2/llm_only/seed_1]
 
 Copy the spec, add that line, and submit the copy with as many shards as labels. The rerun gets a new stamp; give Claude both stamps.
 
+## A GPU machine without Slurm
+
+Any Linux machine with an NVIDIA GPU (driver 570 or newer, for CUDA 12.8) and Docker with the NVIDIA Container Toolkit, or Apptainer, runs the same image and scripts. `cluster/run_local.sh` starts one shard per GPU through `cluster/run_shard.sh`, exactly as a Slurm array task does, then runs `collect.sh`, so `summary.txt`, the logs, and the tarball look the same. Nothing in `cluster.env` needs editing.
+
+```bash
+git clone https://github.com/dominic-dawes-phd/cbba-agent-sim.git && cd cbba-agent-sim
+nvidia-smi                                         # driver 570+, and the GPU indices
+docker pull ghcr.io/dominic-dawes-phd/cbba-agent-sim:b12211     # or let run_local.sh pull it
+#   no Docker: RUNTIME=apptainer; run_local.sh pulls the .sif to ~/cbba-agent-sim.sif (SIF= moves it)
+bash scripts/fetch_model.sh qwen3-8b ~/models      # also ministral3-8b, qwen3.5-4b (sha256 checked)
+
+tmux new -s hive
+bash cluster/run_local.sh configs/sweeps/cluster_smoke_llm.yaml            # GPU 0, one shard
+bash cluster/run_local.sh configs/sweeps/cluster_pilot_llm.yaml 0,1,2,3    # one shard per GPU
+```
+
+- **Models elsewhere:** `MODEL_DIR=/data/models bash cluster/run_local.sh ...` (default `~/models`). The script checks that the spec's `/models/<file>` is there before starting.
+- **Another model:** `cluster_smoke_ministral3_8b.yaml` and `cluster_smoke_qwen35_4b.yaml` exist. For a new spec, copy one and set `llm.model_path: /models/<file>.gguf`; the episode config names the model, which is part of the response cache key.
+- **What you see:** every shard's lines with a `[shard i]` prefix; the same lines, unprefixed, in `runs/<experiment>/cluster_<stamp>/slurm_<i>.out` (named as under Slurm so `collect.sh` reads them). Ctrl+C stops all shards and still collects what finished.
+- **Docker runs as your uid** (`--user`), so `runs/` stays yours and git inside the container can read the commit for `run.json`.
+- **Comparability:** this machine's GPU is its own GPU model. Never mix its runs with the laptop's or `chip`'s in one comparison.
+- **Granite and Gemma** are not in `fetch_model.sh` yet: each needs a first download, its sha256 recorded in `llm_models.md`, and an entry in the script, so every machine checks the same file.
+
 ## When something goes wrong
 
 - **`setup.sh` says "apptainer not found":** you are on the login node; start the GPU job it prints.
@@ -130,4 +153,5 @@ Copy the spec, add that line, and submit the copy with as many shards as labels.
 | `cluster/sweep.sbatch`, `cluster/run_shard.sh` | One array task: start the server and GPU sampler, run the shard, stop them |
 | `cluster/collect.sh` | After the last shard: `summary.txt`, then `pack_results.sh` |
 | `cluster/pack_results.sh` | Tars one launch for the laptop |
+| `cluster/run_local.sh` | A GPU machine without Slurm: one shard per GPU in Docker or Apptainer, then `collect.sh` |
 | `configs/sweeps/cluster_*.yaml` | Cluster specs (`llm.model_path: /models/...`) |

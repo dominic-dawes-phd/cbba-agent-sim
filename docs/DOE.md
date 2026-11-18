@@ -2,7 +2,7 @@
 
 What the experiments vary, what they measure, how runs are replicated and compared, and which runs have actually been executed. Update this file whenever a factor, a level, a response, a condition, or the analysis changes, and add a line to the DOE change log at the end. Code versions refer to `CHANGELOG.md`; design rationale lives in `design/decisions.md`.
 
-**Status (v5.4.03):** pilot stage. C0, G (coded or LLM executor), C1, C2, and C3 run; C4, L, R, and the ablations are not built. The LLM conditions have run live on Qwen3-8B only as single kitchen pilots so far. Every number below comes from pilots, not from the paper's experiment.
+**Status (v5.4.04):** pilot stage. C0, G (coded or LLM executor), C1, C2, and C3 run; C4, L, R, and the ablations are not built. The LLM conditions have run live on Qwen3-8B only as single kitchen pilots so far. Every number below comes from pilots, not from the paper's experiment.
 
 ## Key Definitions/Concepts
 
@@ -216,7 +216,7 @@ The September plan budgets about 400 LLM episodes on the cluster. The draft belo
 
 H2 (C3 vs C2) adds no rows: it reads the C2 and C3 cells of the other sweeps. The draft is far over the ~400 budget (v5.3.00 replaced the `rho` sweep with the larger scale sweep, and added C2 to the H3 sweeps). Large levels (`m` 44, `n` 12) also cost more per episode. Candidate trims: scale one factor only (tasks, or team size) and keep difficulty at three levels, drop C4 from the churn sweep, use 2 seeds per house for the ablation rows, cut the 0.1 loss level, or cut G from the scale sweep (coded G already shows duplicated work). Decide after the house pilot.
 
-**Measured cost (house LLM pilot, laptop RTX 4070):** about 70 minutes of wall time per house episode, so about 400 episodes is about 470 GPU-hours. Paper sweeps therefore run on UMBC HPCF's `chip` cluster, one episode per GPU at a time, all on one GPU model (L40S, 40 cards; `design/cluster.md`); the cluster's minutes per episode, measured on `cluster_pilot_llm.yaml`, will size the final table.
+**Measured cost (house LLM pilot, laptop RTX 4070):** about 70 minutes of wall time per house episode, so about 400 episodes is about 470 GPU-hours. Paper sweeps therefore run on UMBC HPCF's `chip` cluster, one episode per GPU at a time, all on one GPU model (L40S, 40 cards; `design/cluster.md`), or on a GPU machine without Slurm (`cluster/run_local.sh`), again one GPU model per experiment; the cluster's minutes per episode, measured on `cluster_pilot_llm.yaml`, will size the final table.
 
 Plus a frontier-model ceiling check on a few seeds, at perfect comms and at one high-loss level. Finalize this table after the M4 pilot measures episode cost and variance.
 
@@ -344,6 +344,7 @@ Runs on v5.3.01 (house LLM pilot, not results; `runs/pilot_llm/`, stamp `2026111
 
 ## DOE change log
 
+- **Nov 18, 2026 (v5.4.04):** sweeps can also run on a GPU machine without Slurm (`cluster/run_local.sh`, same container and logs); the one-GPU-model-per-experiment rule applies there too. No factor, level, or response changes.
 - **Nov 16, 2026 (v5.4.02):** the cluster is UMBC HPCF `chip`; one experiment uses one GPU model (L40S by default), extending the comparability rule to GPU models. No factor, level, or response changes.
 - **Nov 14, 2026 (v5.4.00):** sweeps can run on the GPU cluster as Slurm array shards under one stamp (`design/cluster.md`); specs gain optional `llm:` and `only:` keys. Comparability rule: a comparison never mixes laptop and cluster runs, so the house pilot is rerun on the cluster (`configs/sweeps/cluster_pilot_llm.yaml`). §6 records the measured laptop cost (about 70 min per house episode).
 

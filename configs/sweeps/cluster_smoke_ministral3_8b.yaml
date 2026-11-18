@@ -1,0 +1,18 @@
+# The cluster smoke test with Ministral 3 8B instead of Qwen3-8B (docs/design/cluster.md): one
+# kitchen C3 episode from the model bake-off (docs/design/llm_models.md), about 10-20 minutes.
+#   Slurm:     bash cluster/submit.sh configs/sweeps/cluster_smoke_ministral3_8b.yaml 1
+#   no Slurm:  bash cluster/run_local.sh configs/sweeps/cluster_smoke_ministral3_8b.yaml
+# Weights: bash scripts/fetch_model.sh ministral3-8b <models folder>. Not a paper result.
+experiment: smoke_ministral3_8b_cluster
+episodes:
+  - configs/m2_home_llm_cbba_ministral3_8b.yaml
+envs: [m2_home]
+first_seed: 0
+seeds: 1
+loss_levels: []
+range_levels: []
+churn: null
+workers: 1
+# The episode config names the model (ministral-3-8b); this is where the container sees its file.
+llm:
+  model_path: /models/Ministral-3-8B-Instruct-2512-Q4_K_M.gguf

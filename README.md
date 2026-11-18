@@ -66,6 +66,7 @@ cbba-agent-sim/
 │   ├── submit.sh             #   submit a sweep as a Slurm array + a collect job
 │   ├── sweep.sbatch, run_shard.sh  # what each array task runs (server + shard + GPU log)
 │   ├── collect.sh            #   after the last shard: summary.txt, then pack
+│   ├── run_local.sh          #   the same on a GPU machine without Slurm (Docker/Apptainer)
 │   └── pack_results.sh       #   tar one launch for the trip back to the laptop
 ├── docs/
 │   ├── CHANGELOG.md          #   what changed in each version
@@ -189,6 +190,17 @@ tar -xzf runs/<experiment>_<stamp>.tar.gz
 python -m experiments.analyze runs/<experiment> --stamp <stamp>
 ```
 
+**A GPU machine without Slurm** (Docker with the NVIDIA Container Toolkit, or Apptainer; driver 570+). Details: `docs/design/cluster.md`, "A GPU machine without Slurm".
+
+```bash
+git clone https://github.com/dominic-dawes-phd/cbba-agent-sim.git && cd cbba-agent-sim
+bash scripts/fetch_model.sh qwen3-8b ~/models                           # also ministral3-8b, qwen3.5-4b
+tmux new -s hive
+bash cluster/run_local.sh configs/sweeps/cluster_smoke_llm.yaml          # pulls the image, GPU 0
+bash cluster/run_local.sh configs/sweeps/cluster_pilot_llm.yaml 0,1      # one shard per GPU
+# results: runs/<experiment>/cluster_<stamp>/summary.txt and runs/<experiment>_<stamp>.tar.gz
+```
+
 ## What the terminal shows (and checking back with tmux)
 
 `run_single` and `sweep` print the HiveSim banner, then:
@@ -235,6 +247,7 @@ Run from the repo root with the venv active.
 | Load a stream in Python | `python -c "from pathlib import Path; from sim.logger import read_stream; print(read_stream(Path('runs/m1_smoke/seed_0'), 'events')[:3])"` | terminal |
 | Memory preflight | `powershell -ExecutionPolicy Bypass -File scripts/preflight.ps1` | PASS / FAIL |
 | Start the model server | `bash scripts/start_server.sh` | runs until Ctrl+C |
+| Sweep on a GPU box, no Slurm | `bash cluster/run_local.sh <cluster spec> [0,1,...]` | `runs/<exp>/cluster_<stamp>/summary.txt`, tarball |
 | GPU use, live | `nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv -l 1` | terminal |
 
 ## Troubleshooting

@@ -1,0 +1,18 @@
+# The cluster smoke test with Qwen3.5-4B instead of Qwen3-8B (docs/design/cluster.md): one
+# kitchen C3 episode from the model bake-off (docs/design/llm_models.md), about 10-20 minutes.
+#   Slurm:     bash cluster/submit.sh configs/sweeps/cluster_smoke_qwen35_4b.yaml 1
+#   no Slurm:  bash cluster/run_local.sh configs/sweeps/cluster_smoke_qwen35_4b.yaml
+# Weights: bash scripts/fetch_model.sh qwen3.5-4b <models folder>. Not a paper result.
+experiment: smoke_qwen35_4b_cluster
+episodes:
+  - configs/m2_home_llm_cbba_qwen35_4b.yaml
+envs: [m2_home]
+first_seed: 0
+seeds: 1
+loss_levels: []
+range_levels: []
+churn: null
+workers: 1
+# The episode config names the model (qwen3.5-4b); this is where the container sees its file.
+llm:
+  model_path: /models/Qwen3.5-4B-Q4_K_M.gguf

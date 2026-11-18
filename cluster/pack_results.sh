@@ -28,7 +28,12 @@ tar -czf "$archive" "${existing[@]}"
 finished=(runs/"$experiment"/*/*/"$stamp"/seed_*/metrics.json)
 started=(runs/"$experiment"/*/*/"$stamp"/seed_*/run.json)
 echo "packed $archive ($(du -h "$archive" | cut -f1)): ${#finished[@]} of ${#started[@]} episodes have metrics"
+# On a machine without Slurm (cluster/run_local.sh), the files come from this host instead.
+host=$LOGIN_HOST
+if ! command -v sbatch > /dev/null; then
+  host=$(hostname)
+fi
 echo "on the laptop, from the repo folder (Git Bash):"
-echo "  scp $(id -un)@$LOGIN_HOST:$PWD/$archive runs/"
+echo "  scp $(id -un)@$host:$PWD/$archive runs/"
 echo "  tar -xzf runs/$(basename "$archive")"
 echo "then tell Claude: results in runs/$experiment, stamp $stamp"

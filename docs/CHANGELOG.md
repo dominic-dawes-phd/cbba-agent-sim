@@ -10,6 +10,12 @@ What changed in the simulator and experiment tooling, newest first. Design ratio
 
 Each entry is 3-6 bullets and names its date.
 
+## [5.4.04] PATCH (Nov 18, 2026)
+- **`cluster/run_local.sh`** (new): runs a sweep spec on a GPU machine without Slurm, one shard per GPU (`0,1,...`), each in the public image under Docker (`--gpus device=N`, your uid) or Apptainer, through the same `cluster/run_shard.sh`. Shard output goes to `slurm_<i>.out` and to the terminal with a `[shard i]` prefix; Ctrl+C stops every shard; `collect.sh` runs at the end.
+- **`cluster/collect.sh`** without Slurm lists each shard's exit status instead of `sacct`; **`pack_results.sh`** prints this host in the `scp` line off-cluster.
+- **Smoke specs for the other downloadable models:** `configs/sweeps/cluster_smoke_ministral3_8b.yaml` and `cluster_smoke_qwen35_4b.yaml` (the kitchen C3 bake-off episode, model file under `/models`), for Slurm or `run_local.sh`.
+- **Docs:** `cluster.md` and README gain "A GPU machine without Slurm" (container, weights, run, results). Granite and Gemma are not in `fetch_model.sh` yet: no file has been downloaded and hashed. No simulator or result changes.
+
 ## [5.4.03] PATCH (Nov 16, 2026)
 - **HiveSim console** (`experiments/console.py`): `run_single` and `sweep` print a HiveSim banner (version, commit, host) and timestamped log lines on stdout, colored only on a terminal (`NO_COLOR` turns colors off), so a tmux pane and a Slurm log read the same.
 - **Status checks before a run** (`[ OK ]`/`[WARN]`/`[FAIL]`): Python, git commit and uncommitted changes, free disk, and for LLM runs the GPU, model file, response cache, and server (`/health`, then slots and context from `/props`). A failure stops the run with exit code 2 and the fix.

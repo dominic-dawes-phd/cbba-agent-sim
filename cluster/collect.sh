@@ -3,6 +3,7 @@
 # hand. Writes runs/<experiment>/cluster_<stamp>/summary.txt (Slurm states, finished and failed
 # episodes, server errors, a rerun line), then packs the launch with cluster/pack_results.sh.
 # Usage by hand, from the repo on the login node: bash cluster/collect.sh <experiment> <stamp> <array job id>
+# cluster/run_local.sh (no Slurm) calls it with the array job id "local".
 set -euo pipefail
 # Under sbatch this script runs from a spool copy, so the repo comes from REPO_DIR.
 cd "${REPO_DIR:-$(dirname "$0")/..}"
@@ -14,11 +15,19 @@ log_dir=runs/$experiment/cluster_$stamp
 shopt -s nullglob
 
 {
-  echo "experiment $experiment, stamp $stamp, array job $array_id on $CLUSTER, collected $(date)"
-  echo
-  echo "== Slurm: one line per shard (State COMPLETED and ExitCode 0:0 is a clean shard)"
-  sacct -M "$CLUSTER" -j "$array_id" -X \
-    --format JobID%16,State%12,ExitCode,Elapsed,MaxRSS,NodeList%16,Partition || echo "(sacct failed)"
+  if command -v sacct > /dev/null; then
+    echo "experiment $experiment, stamp $stamp, array job $array_id on $CLUSTER, collected $(date)"
+    echo
+    echo "== Slurm: one line per shard (State COMPLETED and ExitCode 0:0 is a clean shard)"
+    sacct -M "$CLUSTER" -j "$array_id" -X \
+      --format JobID%16,State%12,ExitCode,Elapsed,MaxRSS,NodeList%16,Partition || echo "(sacct failed)"
+  else
+    # cluster/run_local.sh: no Slurm; each shard's last line is its exit status.
+    echo "experiment $experiment, stamp $stamp, run on $(hostname) without Slurm, collected $(date)"
+    echo
+    echo "== Shards (status 0 is a clean shard)"
+    grep -h "ended with status" "$log_dir"/slurm_*.out || echo "(no shard has ended)"
+  fi
   for out in "$log_dir"/slurm_*.out; do
     restarts=$(grep -c "^node .* restart [1-9]" "$out" || true)
     if [ "$restarts" -gt 0 ]; then
