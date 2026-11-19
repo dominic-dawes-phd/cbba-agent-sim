@@ -9,6 +9,9 @@ stamp=$2
 shard=$3
 shards=$4
 cd /work
+# llama.cpp's image keeps llama-server's libraries (libllama-server-impl.so, ...) next to it in /app
+# but finds them only when started from /app; this shard runs from /work.
+export LD_LIBRARY_PATH=/app:${LD_LIBRARY_PATH:-}
 
 experiment=$(python3 -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["experiment"])' "$spec")
 # The spec's model path is the file every episode hashes, so the server loads that same file.

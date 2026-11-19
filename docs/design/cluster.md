@@ -136,7 +136,7 @@ bash cluster/run_local.sh configs/sweeps/cluster_pilot_llm.yaml 0,1,2,3    # one
 - **`sbatch: error: invalid account` or `invalid partition`:** check `GROUP` in `cluster.env` against the accounts block in `cluster_info.txt`.
 - **Jobs stay pending (`squeue` reason `QOSMaxGRESPerUser` or `Resources`):** fewer shards, or a second GPU model in a separate experiment; never mix models in one comparison.
 - **`Disk quota exceeded` or you cannot log in:** home is full. Something wrote to `~` (look at `du -sh ~/.* ~/*`); move it to the research volume and link it back.
-- **`llama-server exited` in `slurm_<i>.out`:** read `server_shard<i>.log`. "CUDA error: out of memory" should not happen on 48 GB cards; "no kernel image" or "unsupported PTX" means the driver is older than the image needs (CUDA 12.8).
+- **`llama-server exited` in `slurm_<i>.out`:** read `server_shard<i>.log`. "`libllama-server-impl.so`: cannot open shared object file" means `/app` is missing from `LD_LIBRARY_PATH` (`run_shard.sh` sets it since v5.4.05; `git pull`). "CUDA error: out of memory" should not happen on 48 GB cards; "no kernel image" or "unsupported PTX" means the driver is older than the image needs (CUDA 12.8).
 - **HTTP 500 "Context size has been exceeded"** (counted in `summary.txt`): raise `--ctx-size` in `cluster/run_shard.sh` (it is 32768, sized for six house prompts of up to 4.4k tokens).
 - **A shard hit its time limit** (`TIMEOUT` in `summary.txt`): raise `TIME` in `cluster.env`, or use more shards.
 - **A shard was requeued:** it reran its episodes under the same stamp; finished LLM calls replay from the response cache. Nothing to do unless it happens often (then try `PARTITION=gpu-general`).

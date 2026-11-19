@@ -10,6 +10,11 @@ What changed in the simulator and experiment tooling, newest first. Design ratio
 
 Each entry is 3-6 bullets and names its date.
 
+## [5.4.05] PATCH (Nov 19, 2026)
+- **Fix: llama-server could not start in the container** (`libllama-server-impl.so: cannot open shared object file`). llama.cpp's b12211 image keeps the server's libraries beside it in `/app` and finds them only when started from `/app`; `run_shard.sh` runs from `/work`. It now puts `/app` on `LD_LIBRARY_PATH`, and `setup.sh`'s version check does the same.
+- Found by the first `run_local.sh` smoke run on an RTX 3090 machine (Docker, driver 580): the container, GPU, model file, logs, and collect step all worked; only the server failed.
+- The image is unchanged (no rebuild; `git pull` picks up the fix). `cluster.md` troubleshooting names the symptom.
+
 ## [5.4.04] PATCH (Nov 18, 2026)
 - **`cluster/run_local.sh`** (new): runs a sweep spec on a GPU machine without Slurm, one shard per GPU (`0,1,...`), each in the public image under Docker (`--gpus device=N`, your uid) or Apptainer, through the same `cluster/run_shard.sh`. Shard output goes to `slurm_<i>.out` and to the terminal with a `[shard i]` prefix; Ctrl+C stops every shard; `collect.sh` runs at the end.
 - **`cluster/collect.sh`** without Slurm lists each shard's exit status instead of `sacct`; **`pack_results.sh`** prints this host in the `scp` line off-cluster.

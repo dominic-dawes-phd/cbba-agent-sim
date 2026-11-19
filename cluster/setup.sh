@@ -30,7 +30,8 @@ if [ ! -f "$sif" ]; then
 fi
 echo "image: $sif"
 apptainer exec "$sif" python3 --version
-apptainer exec --nv "$sif" llama-server --version
+# llama-server finds its libraries in /app only through LD_LIBRARY_PATH (see run_shard.sh).
+apptainer exec --nv "$sif" bash -c 'LD_LIBRARY_PATH=/app:$LD_LIBRARY_PATH llama-server --version'
 
 bash scripts/fetch_model.sh qwen3-8b "$DATA_DIR/models"
 
